@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import type { JSX } from 'react';
 import { engine } from '../audio/engine';
@@ -20,7 +20,20 @@ export interface ChannelStripProps {
 
 export function ChannelStrip({ track, runtime, selected, lang }: ChannelStripProps): JSX.Element {
   const [dragging, setDragging] = useState(false);
+  const [ringSize, setRingSize] = useState(188);
   const fileInput = useRef<HTMLInputElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const element = stageRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      if (width > 0) setRingSize(Math.max(148, Math.min(266, Math.round(width - 30))));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   const tint = TRACK_TINTS[(track.id - 1) % TRACK_TINTS.length];
   const peaks = peaksFor(track.buffer, 64);
   const recording = runtime.status === 'REC' || runtime.status === 'OVERDUB' || runtime.status === 'COUNT-IN';
@@ -59,9 +72,9 @@ export function ChannelStrip({ track, runtime, selected, lang }: ChannelStripPro
         </span>
       </div>
 
-      <div className="strip-stage">
+      <div className="strip-stage" ref={stageRef}>
         <LoopRing
-          size={188}
+          size={ringSize}
           progress={runtime.progress}
           status={runtime.status}
           peaks={peaks}
