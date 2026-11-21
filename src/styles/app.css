@@ -274,6 +274,12 @@ a { color: inherit; text-decoration: none; }
   font-size: 8.5px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted);
   padding: 6px 9px 3px;
 }
+.menu-value {
+  margin-left: auto; font-family: var(--mono); font-size: 9px; font-weight: 700;
+  color: var(--accent-text); letter-spacing: 0.06em;
+}
+
+.mobile-fields { display: none; }
 
 /* ── stage ─────────────────────────────────────────────────────────────── */
 .stage {
@@ -380,7 +386,7 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid var(--border-soft); border-radius: 4px; padding: 1px 4px;
 }
 
-.strip-stage { display: flex; flex-direction: column; align-items: center; gap: 5px; padding-top: 1px; }
+.strip-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 4px 0 2px; }
 .strip-state-line { display: flex; align-items: center; gap: 6px; }
 
 .state-pill {
@@ -460,7 +466,11 @@ input.fader, input.pan { flex: 1; min-width: 0; height: 16px; cursor: pointer; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   pointer-events: none;
 }
-.ring-percent { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text-body); }
+.ring-percent {
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text-body);
+  padding: 2px 8px; border-radius: 999px; border: 1px solid transparent;
+  background: color-mix(in srgb, var(--surface) 74%, transparent);
+}
 .ring-state {
   display: inline-flex; align-items: center; gap: 4px;
   font-family: var(--mono); font-size: 8.5px; font-weight: 700; letter-spacing: 0.12em;
@@ -547,13 +557,13 @@ input.fader, input.pan { flex: 1; min-width: 0; height: 16px; cursor: pointer; }
 .modal-tabs { margin-bottom: 2px; }
 .inline-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
-.midi-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 9.5px; color: var(--muted); max-width: 54%;
+.midi-row {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: 10px; line-height: 1.45; color: var(--muted);
 }
-.midi-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); flex: none; }
-.midi-connected { color: var(--ok); }
-.midi-connected .dot { background: var(--ok); }
+.midi-row .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-strong); flex: none; margin-top: 4px; }
+.midi-row.midi-connected { color: var(--ok); }
+.midi-row.midi-connected .dot { background: var(--ok); }
 
 .target-line { display: flex; align-items: center; gap: 8px; }
 .target-chip {
@@ -796,8 +806,17 @@ kbd {
   .transport-main { gap: 5px; }
   .transport-play { width: 38px; height: 38px; }
   .transport-stop { width: 30px; height: 30px; }
-  .sep, .chip-btn, .sig-group, .bars-group .field-label, .toggle-btn, .master-meter { display: none; }
+  .sep, .chip-btn, .sig-group, .bars-group, .toggle-btn, .master-meter, .theme-btn, .lang-btn { display: none; }
+  .mobile-fields { display: flex; align-items: center; gap: 4px; flex: none; }
+  .mobile-chip {
+    height: 27px; padding: 0 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-body);
+    font-size: 10.5px; font-weight: 650; white-space: nowrap;
+  }
+  .mobile-chip:active { background: var(--accent-soft); color: var(--accent-text); }
   .bpm-group .field-label { display: none; }
+  .stepper { height: 27px; }
+  .stepper button { width: 20px; }
   .stepper .bpm-input { width: 38px; font-size: 13px; }
   .transport-right { gap: 2px; }
   .stage { padding: 8px 10px 0; }

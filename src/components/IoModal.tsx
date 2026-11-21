@@ -61,7 +61,6 @@ export function IoModal({ inputLevel }: { inputLevel: number }): JSX.Element {
         </div>
         {io.mic === 'denied' && <p className="hint warn">{t(lang, 'io.micDenied')}</p>}
         {!inputs.length && <p className="hint">{t(lang, 'io.noDevices')}</p>}
-        <p className="hint">{t(lang, 'io.inputHint')}</p>
 
         <label className="fx-slider">
           <span className="fx-name">{t(lang, 'io.inputGain')}</span>

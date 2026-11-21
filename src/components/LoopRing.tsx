@@ -111,7 +111,7 @@ export function LoopRing({
   const recording = status === 'REC' || status === 'OVERDUB';
   const live = recording || status === 'COUNT-IN';
   const waveWidth = 118;
-  const waveHeight = 44;
+  const waveHeight = 38;
 
   return (
     <div className={`loop-ring ${recording ? 'is-recording' : ''}`} style={{ width: size, height: size }}>
@@ -162,14 +162,10 @@ export function LoopRing({
         {live && showScope ? (
           <LiveScope trackId={trackId} size={Math.round(size * 0.62)} />
         ) : (
-          <span className="ring-percent tabular">
+          <span className="ring-percent tabular" style={{ borderColor: color }}>
             {status === 'EMPTY' ? '—' : `${Math.round(clamped * 100)}%`}
           </span>
         )}
-        <span className={`ring-state state-${status.toLowerCase()}`} style={{ color }}>
-          <span className="ring-dot" style={{ background: color }} />
-          {status}
-        </span>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { engine } from '../audio/engine';
 import { DRUM_PADS } from '../audio/drums';
@@ -131,8 +131,8 @@ function Keybed({
               type="button"
               className={`black-key ${held.has(midi) ? 'down' : ''}`}
               style={{
-                left: `${(oct * 7 + afterWhite) * whiteWidth + whiteWidth * 0.66}%`,
-                width: `${whiteWidth * 0.6}%`,
+                left: `${(oct * 7 + afterWhite) * whiteWidth + whiteWidth * 0.74}%`,
+                width: `${whiteWidth * 0.52}%`,
               }}
               onPointerDown={(event) => {
                 event.currentTarget.setPointerCapture(event.pointerId);
@@ -157,42 +157,36 @@ export function InstrumentDrawer({ onClose }: { onClose: () => void }): JSX.Elem
   const midi = useMidi();
   const [velocity, setVelocity] = useState(0.85);
   const armed = state.project.tracks.find((track) => track.armed);
-  const title = useMemo(
-    () => (instrument.tab === 'synth' ? t(lang, 'inst.synth') : t(lang, 'inst.drums')),
-    [instrument.tab, lang],
-  );
 
   return (
     <>
-      <header className="inline-head">
-        <div className="tabs">
-          <button
-            type="button"
-            className={instrument.tab === 'synth' ? 'on' : ''}
-            onClick={() => studio.setInstrument({ tab: 'synth' })}
-          >
-            {t(lang, 'inst.synth')}
-          </button>
-          <button
-            type="button"
-            className={instrument.tab === 'drums' ? 'on' : ''}
-            onClick={() => studio.setInstrument({ tab: 'drums' })}
-          >
-            {t(lang, 'inst.drums')}
-          </button>
-        </div>
-        <span className={`midi-badge midi-${midi}`}>
-          <span className="dot" />
-          {t(
-            lang,
-            midi === 'unsupported'
-              ? 'inst.midiUnsupported'
-              : midi === 'connected'
-                ? 'inst.midiConnected'
-                : 'inst.midiReady',
-          )}
-        </span>
-      </header>
+      <div className="tabs">
+        <button
+          type="button"
+          className={instrument.tab === 'synth' ? 'on' : ''}
+          onClick={() => studio.setInstrument({ tab: 'synth' })}
+        >
+          {t(lang, 'inst.synth')}
+        </button>
+        <button
+          type="button"
+          className={instrument.tab === 'drums' ? 'on' : ''}
+          onClick={() => studio.setInstrument({ tab: 'drums' })}
+        >
+          {t(lang, 'inst.drums')}
+        </button>
+      </div>
+      <div className={`midi-row midi-${midi}`}>
+        <span className="dot" />
+        {t(
+          lang,
+          midi === 'unsupported'
+            ? 'inst.midiUnsupported'
+            : midi === 'connected'
+              ? 'inst.midiConnected'
+              : 'inst.midiReady',
+        )}
+      </div>
 
       <div className="target-line">
         <span className="field-label">{t(lang, 'inst.target')}</span>
@@ -243,7 +237,7 @@ export function InstrumentDrawer({ onClose }: { onClose: () => void }): JSX.Elem
           </div>
 
           <div className="control-block">
-            <span className="block-label">{title}</span>
+            <span className="block-label">{t(lang, 'inst.keyboard')}</span>
             <Keybed octave={instrument.octave} velocity={velocity} />
             <p className="hint">{t(lang, 'inst.qwertyHint')}</p>
           </div>

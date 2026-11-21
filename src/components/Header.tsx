@@ -49,6 +49,20 @@ export function Header({ playing, master, lang, onHelp }: HeaderProps): JSX.Elem
     };
   }, []);
 
+  const cycleBars = (): void => {
+    const order = [1, 2, 4, 8];
+    const index = order.indexOf(project.bars);
+    studio.setBars(order[(index + 1) % order.length]);
+  };
+
+  const cycleSignature = (): void => {
+    const index = SIGNATURES.findIndex(
+      (entry) => entry.beatsPerBar === project.beatsPerBar && entry.beatUnit === project.beatUnit,
+    );
+    const next = SIGNATURES[(index + 1) % SIGNATURES.length];
+    studio.setSignature(next.beatsPerBar, next.beatUnit);
+  };
+
   const onTap = (): void => {
     const now = performance.now();
     taps.current = [...taps.current, now].slice(-8);
@@ -153,6 +167,20 @@ export function Header({ playing, master, lang, onHelp }: HeaderProps): JSX.Elem
           </div>
         </div>
 
+        <div className="mobile-fields">
+          <button type="button" className="mobile-chip" onClick={cycleBars} title={t(lang, 'transport.bars')}>
+            <span className="tabular">{project.bars}</span> {t(lang, 'transport.bars')}
+          </button>
+          <button
+            type="button"
+            className="mobile-chip tabular"
+            onClick={cycleSignature}
+            title={t(lang, 'transport.signature')}
+          >
+            {project.beatsPerBar}/{project.beatUnit}
+          </button>
+        </div>
+
         <button
           type="button"
           className={`toggle-btn ${project.metronome ? 'on' : ''}`}
@@ -185,7 +213,7 @@ export function Header({ playing, master, lang, onHelp }: HeaderProps): JSX.Elem
 
         <button
           type="button"
-          className="icon-btn"
+          className="icon-btn theme-btn"
           onClick={() => studio.toggleTheme()}
           title={t(lang, 'header.theme')}
           aria-label={t(lang, 'header.theme')}
@@ -226,6 +254,29 @@ export function Header({ playing, master, lang, onHelp }: HeaderProps): JSX.Elem
               >
                 <IconHelp size={15} />
                 <span>{t(lang, 'header.help')}</span>
+              </button>
+              <button
+                type="button"
+                className="menu-item"
+                onClick={() => {
+                  studio.toggleTheme();
+                  setMenuOpen(false);
+                }}
+              >
+                {dark ? <IconSun size={15} /> : <IconMoon size={15} />}
+                <span>{t(lang, 'header.theme')}</span>
+                <span className="menu-value tabular">{dark ? 'DARK' : 'LIGHT'}</span>
+              </button>
+              <button
+                type="button"
+                className="menu-item"
+                onClick={() => {
+                  studio.toggleLang();
+                  setMenuOpen(false);
+                }}
+              >
+                <span>{t(lang, 'header.lang')}</span>
+                <span className="menu-value tabular">{lang === 'ko' ? 'KO' : 'EN'}</span>
               </button>
               <div className="menu-divider" />
               <span className="menu-label">{t(lang, 'header.navigation')}</span>
