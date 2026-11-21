@@ -13,6 +13,7 @@ import {
   loopFrames,
   loopPhase,
   loopSeconds,
+  nextBarBoundary,
 } from './clock';
 import { applyOverdub, extractRegion, fitFrames, peakOf, resampleLoop, rotateFrames } from './dsp';
 import { DrumKit, type DrumKitName } from './drums';
@@ -51,6 +52,8 @@ interface EngineTrack {
   recMode: 'rec' | 'overdub' | null;
   recStart: number;
   recEnd: number;
+  /** Frames to keep when the performer stopped before the loop end. */
+  recTrim: number;
   recorder: LoopRecorder | null;
   inputConnected: boolean;
 }
@@ -146,6 +149,10 @@ export class AudioEngine {
 
   get barSecondsValue(): number {
     return barSeconds(this.bpm, this.beatsPerBar, this.beatUnit);
+  }
+
+  private beatSecondsValue(): number {
+    return beatSeconds(this.bpm, this.beatUnit);
   }
 
   on(event: 'change' | 'state', listener: Listener): () => void {
@@ -436,6 +443,7 @@ export class AudioEngine {
       recMode: null,
       recStart: 0,
       recEnd: 0,
+      recTrim: 0,
       recorder: null,
       inputConnected: false,
     });
@@ -655,6 +663,7 @@ export class AudioEngine {
     track.recMode = track.buffer ? 'overdub' : 'rec';
     track.recStart = armAt;
     track.recEnd = armAt + loopSec;
+    track.recTrim = 0;
     this.usingInstrument = !this.micStream;
     this.connectInputs(track);
     try {
@@ -671,9 +680,38 @@ export class AudioEngine {
     return true;
   }
 
+  /** Stop early on the next bar line, keeping the take quantised. */
   stopRecording(id: number): void {
     const track = this.tracks.get(id);
-    if (track?.recMode) this.finalize(track);
+    if (!track?.recMode || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    const barSec = this.barSecondsValue;
+    const stopAt = Math.min(
+      track.recEnd,
+      nextBarBoundary(now + 0.02, this.loopStart, barSec),
+    );
+    if (stopAt <= track.recStart) {
+      this.cancelRecording(track);
+      return;
+    }
+    const frames = loopFrames(this.loopSecondsValue, this.ctx.sampleRate);
+    track.recTrim = Math.max(
+      Math.round(this.beatSecondsValue() * this.ctx.sampleRate),
+      Math.min(frames, Math.round((stopAt - track.recStart) * this.ctx.sampleRate)),
+    );
+    track.recEnd = stopAt;
+  }
+
+  private cancelRecording(track: EngineTrack): void {
+    const recorder = track.recorder;
+    track.recorder = null;
+    track.recMode = null;
+    track.recTrim = 0;
+    this.disconnectInputs(track);
+    if (recorder) {
+      void recorder.stopAsync().then(() => recorder.dispose());
+    }
+    this.emit();
   }
 
   private scheduleCountIn(from: number, to: number): void {
@@ -754,7 +792,7 @@ export class AudioEngine {
         ),
         offsetFrames,
       );
-      const take = Math.max(1, Math.min(frames, capturedFrames || frames));
+      const take = Math.max(1, Math.min(frames, track.recTrim || capturedFrames || frames));
       const loop: LoopBuffer = {
         sampleRate: ctx.sampleRate,
         channels: channels.map((channel) => {
