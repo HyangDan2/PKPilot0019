@@ -287,6 +287,17 @@ function buildProject(
   tracks.forEach((spec, index) => {
     const data = new Float32Array(rc.frames);
     spec.render(data, rc);
+    // Keep every demo stem inside full scale so the master limiter is not
+    // asked to rescue a clipped layer.
+    let peak = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const value = Math.abs(data[i]);
+      if (value > peak) peak = value;
+    }
+    if (peak > 0.9) {
+      const scale = 0.88 / peak;
+      for (let i = 0; i < data.length; i += 1) data[i] *= scale;
+    }
     const loop: LoopBuffer = { sampleRate: SR, channels: [data] };
     const track = project.tracks[index];
     project.tracks[index] = {

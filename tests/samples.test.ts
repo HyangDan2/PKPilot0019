@@ -41,7 +41,7 @@ describe('built-in sample projects', () => {
         const peaks = loopPeaks(track.buffer, 64);
         const loudest = Math.max(...peaks);
         expect(loudest, `${sample.key} ${track.name}`).toBeGreaterThan(0.03);
-        expect(loudest, `${sample.key} ${track.name}`).toBeLessThanOrEqual(1);
+        expect(loudest, `${sample.key} ${track.name}`).toBeLessThanOrEqual(0.92);
       }
     }
   });
