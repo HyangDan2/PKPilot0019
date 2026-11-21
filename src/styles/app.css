@@ -476,6 +476,7 @@ input.fader, input.pan { flex: 1; min-width: 0; height: 16px; cursor: pointer; }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
   pointer-events: none;
 }
+.ring-center > .ring-percent { position: absolute; top: 19%; }
 .ring-percent {
   font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--text-body);
   padding: 2px 8px; border-radius: 999px; border: 1px solid transparent;
@@ -763,7 +764,7 @@ kbd {
 .chip-name { max-width: 76px; overflow: hidden; text-overflow: ellipsis; }
 .chip-flags { font-size: 8px; font-weight: 800; color: var(--overdub); }
 
-.mobile-stage { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; padding-top: 2px; }
+.mobile-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding-top: 2px; }
 .mobile-track-line { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 .mobile-track-name { font-weight: 700; }
 .mobile-beat { font-family: var(--mono); font-size: 10px; color: var(--muted); }
