@@ -28,6 +28,7 @@ interface Frame {
   runtime: TrackRuntime[];
   master: number;
   input: number;
+  trackLevels: Record<number, number>;
 }
 
 const EMPTY_FRAME: Frame = {
@@ -39,6 +40,7 @@ const EMPTY_FRAME: Frame = {
   runtime: [],
   master: 0,
   input: 0,
+  trackLevels: {},
 };
 
 export default function App(): JSX.Element {
@@ -66,6 +68,7 @@ export default function App(): JSX.Element {
         runtime: engine.trackRuntime(),
         master: levels.master,
         input: levels.input,
+        trackLevels: levels.tracks,
       });
     };
     raf = requestAnimationFrame(loop);
@@ -135,6 +138,7 @@ export default function App(): JSX.Element {
                   runtime={runtimeFor(track.id, !!track.buffer)}
                   selected={state.selectedTrack === track.id}
                   lang={lang}
+                  level={frame.trackLevels[track.id] ?? 0}
                 />
               ))}
             </section>

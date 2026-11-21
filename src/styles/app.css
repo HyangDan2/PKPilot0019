@@ -367,6 +367,16 @@ a { color: inherit; text-decoration: none; }
 .strip.is-selected::before { opacity: 1; }
 .strip.is-dropping { border-style: dashed; border-color: var(--tint); background: color-mix(in srgb, var(--tint) 8%, var(--surface)); }
 
+.strip-meter {
+  position: absolute; right: 5px; top: 42px; bottom: 168px; width: 3px;
+  border-radius: 2px; background: var(--border-soft); overflow: hidden;
+  display: flex; align-items: flex-end;
+}
+.strip-meter-fill {
+  width: 100%; border-radius: 2px;
+  background: linear-gradient(180deg, var(--tint), color-mix(in srgb, var(--tint) 45%, transparent));
+  transition: height 0.08s linear; opacity: 0.55;
+}
 .strip-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .strip-index {
   font-family: var(--mono); font-size: 9.5px; font-weight: 700;
@@ -527,7 +537,7 @@ input.fader, input.pan { flex: 1; min-width: 0; height: 16px; cursor: pointer; }
 
 .modal {
   position: relative; margin: auto;
-  width: min(584px, calc(100% - 28px)); max-height: 88dvh;
+  width: min(584px, calc(100% - 28px)); max-height: 92dvh;
   background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
   box-shadow: var(--shadow);
   display: flex; flex-direction: column; overflow: hidden;
@@ -646,7 +656,7 @@ input.fader, input.pan { flex: 1; min-width: 0; height: 16px; cursor: pointer; }
 .track-tab.on { border-color: var(--tint); background: color-mix(in srgb, var(--tint) 10%, var(--surface)); color: var(--text); }
 .track-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tint); }
 
-.io-block { display: flex; flex-direction: column; gap: 9px; border: 1px solid var(--border-soft); border-radius: 12px; padding: 12px 13px; background: var(--surface); }
+.io-block { display: flex; flex-direction: column; gap: 7px; border: 1px solid var(--border-soft); border-radius: 12px; padding: 10px 13px; background: var(--surface); }
 .io-block h3 { margin: 0; font-size: 10px; font-weight: 750; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
 .select {
   height: 33px; border: 1px solid var(--border); border-radius: 8px;
@@ -660,7 +670,7 @@ input.fader, input.pan { flex: 1; min-width: 0; height: 16px; cursor: pointer; }
 .switch-row {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   border: none; border-bottom: 1px dashed var(--border-soft); background: transparent;
-  padding: 7px 0; font-size: 11.5px; color: var(--text-body); text-align: left;
+  padding: 6px 0; font-size: 11.5px; color: var(--text-body); text-align: left;
 }
 .switch-row:last-of-type { border-bottom: none; }
 .switch-track {

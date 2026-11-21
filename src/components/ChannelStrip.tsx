@@ -16,9 +16,10 @@ export interface ChannelStripProps {
   runtime: TrackRuntime;
   selected: boolean;
   lang: 'ko' | 'en';
+  level: number;
 }
 
-export function ChannelStrip({ track, runtime, selected, lang }: ChannelStripProps): JSX.Element {
+export function ChannelStrip({ track, runtime, selected, lang, level }: ChannelStripProps): JSX.Element {
   const [dragging, setDragging] = useState(false);
   const [ringSize, setRingSize] = useState(188);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -59,6 +60,10 @@ export function ChannelStrip({ track, runtime, selected, lang }: ChannelStripPro
       onDrop={onDrop}
       data-track={track.id}
     >
+      <div className="strip-meter" aria-hidden>
+        <div className="strip-meter-fill" style={{ height: `${Math.min(100, level * 118)}%` }} />
+      </div>
+
       <div className="strip-head">
         <span className="strip-index">T{track.id}</span>
         <input
