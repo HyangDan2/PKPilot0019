@@ -1,0 +1,28 @@
+{
+  "name": "pkpilot0019",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "HD2Lab Lýra — multi-track loop station, 100% in-browser",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173 --strictPort",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "happy-dom": "^17.4.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.5"
+  }
+}
