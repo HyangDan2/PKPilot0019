@@ -28,7 +28,7 @@ import {
 import { t } from '../i18n';
 import { loadSession, saveSession } from './storage';
 
-export type Drawer = null | 'instrument' | 'fx' | 'io' | 'export';
+export type Drawer = null | 'project' | 'instrument' | 'fx' | 'io' | 'export';
 
 export interface Toast {
   id: number;

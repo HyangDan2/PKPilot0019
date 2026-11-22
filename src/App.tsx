@@ -7,7 +7,7 @@ import { t } from './i18n';
 import { useMediaQuery } from './hooks/useMedia';
 import { useInstrumentKeyboard } from './hooks/useInstrumentKeyboard';
 import { Header } from './components/Header';
-import { ProjectBar } from './components/ProjectBar';
+import { ProjectDrawer } from './components/ProjectDrawer';
 import { SamplePrompt } from './components/SamplePrompt';
 import { ChannelStrip } from './components/ChannelStrip';
 import { MobileDeck } from './components/MobileDeck';
@@ -144,8 +144,6 @@ export default function App(): JSX.Element {
           <div className="error-banner">{t(lang, 'toast.noAudio')}</div>
         )}
 
-        <ProjectBar />
-
         {desktop ? (
           <>
             {emptyProject && <SamplePrompt />}
@@ -177,6 +175,16 @@ export default function App(): JSX.Element {
         <Dock />
       </main>
 
+      {state.drawer === 'project' && (
+        <Sheet
+          title={t(lang, 'project.title')}
+          subtitle={t(lang, 'project.drawerHint')}
+          variant="center"
+          onClose={() => studio.closeDrawer()}
+        >
+          <ProjectDrawer />
+        </Sheet>
+      )}
       {state.drawer === 'instrument' && (
         <Sheet
           title={t(lang, 'dock.instrumentTitle')}
