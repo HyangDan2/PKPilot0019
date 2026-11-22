@@ -24,6 +24,20 @@ describe('i18n', () => {
     expect(t('en', 'missing.key')).toBe('missing.key');
   });
 
+  it('gives every mobile transport pad a Korean caption, never the same English twice', () => {
+    const pads = [
+      ['pad.rec', 'REC'],
+      ['pad.overdub', 'OVERDUB'],
+      ['pad.play', 'PLAY'],
+      ['pad.stop', 'STOP'],
+    ] as const;
+    for (const [key, abbreviation] of pads) {
+      const caption = t('ko', key);
+      expect(caption.toUpperCase()).not.toBe(abbreviation);
+      expect(caption).toMatch(/[가-힣]/);
+    }
+  });
+
   it('falls back to Korean for an unknown language', () => {
     // @ts-expect-error deliberate unknown locale
     expect(t('fr', 'track.play')).toBe('재생');

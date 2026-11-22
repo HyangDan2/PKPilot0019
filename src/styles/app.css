@@ -555,8 +555,9 @@ input.fader, input.pan { flex: 1; min-width: 0; height: 18px; cursor: pointer; }
   pointer-events: none;
 }
 .ring-percent {
-  font-family: var(--mono); font-size: var(--fs-sm); font-weight: 700; color: var(--text-body);
-  padding: 2px 8px; border-radius: 999px;
+  position: absolute; left: 50%; bottom: 15%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: var(--fs-sm); font-weight: 700; color: var(--text-secondary);
+  letter-spacing: 0.02em; padding: 0 6px; white-space: nowrap;
 }
 .ring-state {
   display: inline-flex; align-items: center; gap: 4px;
@@ -844,9 +845,9 @@ kbd {
 .chip-name { max-width: 86px; overflow: hidden; text-overflow: ellipsis; }
 .chip-flags { font-size: 9px; font-weight: 800; color: var(--overdub); }
 
-.mobile-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding-top: 2px; }
-.mobile-track-line { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); }
-.mobile-track-name { font-weight: 700; }
+.mobile-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding-top: 2px; overflow: hidden; }
+.mobile-track-line { display: flex; align-items: center; gap: 8px; font-size: var(--fs-body); max-width: 100%; padding: 0 4px; }
+.mobile-track-name { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mobile-beat { font-family: var(--mono); font-size: var(--fs-xs); color: var(--muted); }
 
 .sample-hero.in-deck { margin: 0; padding: 0; border: none; background: transparent; flex: none; display: flex; flex-direction: column; }
@@ -1037,4 +1038,24 @@ kbd {
   .pad-main { font-size: 12px; }
   .project-actions { flex-wrap: wrap; }
   .pb-btn { flex: 1 1 calc(50% - 3px); }
+}
+
+/* ── short phone viewports ─────────────────────────────────────────────── */
+/* Safari on an iPhone gives the page only ~635–680px once its own bars are
+   up, and the deck has to hold the chips, the ring with its status row, the
+   pads, the mixer and the utility row at once. Everything else gives up a few
+   pixels so the loop ring keeps a usable size instead of reaching up into the
+   track chips or sliding under the REC / OVERDUB pads. */
+@media (max-width: 767px) and (max-height: 780px) {
+  .stage { padding: 4px 10px calc(72px + env(safe-area-inset-bottom)); }
+  .project-bar { gap: 4px; padding-bottom: 4px; }
+  .pb-btn { height: 30px; }
+  .mobile-deck { gap: 5px; }
+  .chip-scroll { padding: 1px 0; }
+  .track-chip { height: 34px; }
+  .mobile-pad { height: 50px; }
+  .mobile-slider { padding: 5px 8px; }
+  .mobile-utility .ghost-btn,
+  .mobile-utility .ms-btn,
+  .mobile-utility .file-btn { height: 32px; }
 }
