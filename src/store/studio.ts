@@ -206,7 +206,7 @@ class Studio {
     try {
       const stored = await loadSession();
       if (stored) {
-        project = parseProjectJson(stored);
+        project = stored;
         restored = true;
       }
     } catch {
@@ -228,6 +228,10 @@ class Studio {
       return;
     }
     engine.on('change', () => this.syncFromEngine());
+    engine.onError((error) => {
+      if (error.code === 'recorder-flush') this.toast(this.tr('toast.flushFailed'), 'warn');
+      else if (error.code === 'input-switch-failed') this.toast(this.tr('toast.inputSwitchFailed'), 'warn');
+    });
     await engine.loadProject(project);
     this.set({
       booted: true,
@@ -249,10 +253,11 @@ class Studio {
     const tracks = this.state.project.tracks.map((track) => {
       const buffer = engine.getTrackBuffer(track.id);
       const active = engine.isTrackActive(track.id);
-      if (buffer !== track.buffer || active !== track.active) {
+      const source = engine.getTrackSource(track.id) ?? track.source;
+      if (buffer !== track.buffer || active !== track.active || source !== track.source) {
         changed = true;
         if (buffer) peaksFor(buffer);
-        return { ...track, buffer, active };
+        return { ...track, buffer, active, source };
       }
       return track;
     });
@@ -265,7 +270,8 @@ class Studio {
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
       try {
-        void saveSession(projectToJson(this.state.project));
+        // Binary IndexedDB snapshot: no sample is converted to text here.
+        void saveSession(this.state.project);
       } catch {
         // autosave is best effort
       }
@@ -332,8 +338,11 @@ class Studio {
 
   setBpm(bpm: number): void {
     const next = Math.max(40, Math.min(220, Math.round(bpm)));
+    if (next === this.state.project.bpm) return;
+    const repitched = engine.hasLoops();
     engine.setBpm(next);
     this.setProject({ ...this.state.project, bpm: next });
+    if (repitched) this.toast(this.tr('toast.tempoShifted'));
   }
 
   setBars(bars: number): void {
@@ -628,11 +637,19 @@ class Studio {
   }
 
   async setInputDevice(deviceId: string): Promise<void> {
-    this.set({ io: { ...this.state.io, inputDeviceId: deviceId } });
-    if (this.state.io.mic === 'granted') {
-      const ok = await engine.requestMicrophone(deviceId || undefined);
-      this.set({ io: { ...this.state.io, inputDeviceId: deviceId, mic: ok ? 'granted' : 'denied' } });
+    if (this.state.io.mic !== 'granted') {
+      // Only remember the choice; the device is opened on the next permission ask.
+      this.set({ io: { ...this.state.io, inputDeviceId: deviceId } });
+      return;
     }
+    const ok = await engine.requestMicrophone(deviceId || undefined);
+    if (!ok) {
+      // The switch failed: keep the old device selected and the mic granted.
+      this.toast(this.tr('toast.inputSwitchFailed'), 'warn');
+      return;
+    }
+    this.set({ io: { ...this.state.io, inputDeviceId: deviceId, mic: 'granted' } });
+    await this.refreshDevices();
   }
 
   async setOutputDevice(deviceId: string): Promise<void> {
@@ -651,15 +668,26 @@ class Studio {
     this.set({ io: { ...this.state.io, inputGain: value } });
   }
 
-  setProcessing(patch: Partial<IoState['processing']>): void {
-    const processing = { ...this.state.io.processing, ...patch };
-    engine.setProcessing(patch);
+  async setProcessing(patch: Partial<IoState['processing']>): Promise<void> {
+    const previous = this.state.io.processing;
+    const processing = { ...previous, ...patch };
     this.set({ io: { ...this.state.io, processing } });
+    const ok = await engine.setProcessing(patch);
+    if (!ok) {
+      // The browser rejected the constraints; show what is actually in force.
+      this.set({ io: { ...this.state.io, processing: previous } });
+      this.toast(this.tr('toast.inputSwitchFailed'), 'warn');
+    }
   }
 
-  setChannelMode(mode: 'mono' | 'stereo'): void {
-    engine.setInputChannelMode(mode);
+  async setChannelMode(mode: 'mono' | 'stereo'): Promise<void> {
+    const previous = this.state.io.channelMode;
     this.set({ io: { ...this.state.io, channelMode: mode } });
+    const ok = await engine.setInputChannelMode(mode);
+    if (!ok) {
+      this.set({ io: { ...this.state.io, channelMode: previous } });
+      this.toast(this.tr('toast.inputSwitchFailed'), 'warn');
+    }
   }
 
   setSampleRateChoice(rate: 44100 | 48000): void {

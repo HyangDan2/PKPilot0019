@@ -154,6 +154,7 @@ export class FakeBufferSourceNode extends FakeAudioNode {
   loop = false;
   loopStart = 0;
   loopEnd = 0;
+  readonly playbackRate = new FakeAudioParam(1);
   started = false;
   stopped = false;
   startTime: number | null = null;
@@ -163,6 +164,9 @@ export class FakeBufferSourceNode extends FakeAudioNode {
     if (!Number.isFinite(time) || time < 0) throw new RangeError(`bufferSource.start(${time})`);
     this.started = true;
     this.startTime = time;
+    // A buffer shorter than the render is heard as its end; tests that wait for
+    // `onended` (Opus export) do not hang.
+    if (this.onended) queueMicrotask(() => this.onended?.());
   }
 
   stop(): void {
@@ -337,11 +341,37 @@ export class FakeAudioContext extends FakeNodeFactory {
   state: 'running' | 'suspended' | 'closed' = 'running';
   readonly destination = new FakeAudioNode();
   closed = false;
+  /** When set, `decodeAudioData` resolves with this buffer. */
+  decodeResult: FakeAudioBuffer | null = null;
+  /** When true, decodes wait for `releaseDecode`. */
+  holdDecode = false;
+  readonly pendingDecodes: {
+    resolve: (buffer: FakeAudioBuffer) => void;
+    reject: (error: unknown) => void;
+  }[] = [];
 
   constructor(options: FakeContextOptions = {}) {
     super();
     this.sampleRate = options.sampleRate ?? 8000;
     void options.latencyHint;
+  }
+
+  decodeAudioData(data: ArrayBuffer): Promise<FakeAudioBuffer> {
+    void data;
+    if (this.holdDecode) {
+      return new Promise<FakeAudioBuffer>((resolve, reject) => {
+        this.pendingDecodes.push({ resolve, reject });
+      });
+    }
+    return Promise.resolve(this.decodeResult ?? new FakeAudioBuffer(1, this.sampleRate, this.sampleRate));
+  }
+
+  /** Finish the oldest held decode; pass null to fail it. */
+  releaseDecode(buffer: FakeAudioBuffer | null, error: unknown = new Error('decode')): void {
+    const pending = this.pendingDecodes.shift();
+    if (!pending) return;
+    if (buffer) pending.resolve(buffer);
+    else pending.reject(error);
   }
 
   async resume(): Promise<void> {

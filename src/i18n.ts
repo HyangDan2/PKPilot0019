@@ -237,6 +237,9 @@ const ko: Dict = {
   'toast.tapAgain': '조금 더 두드려 주세요',
   'toast.recording': '녹음이 마디 경계에서 시작됩니다',
   'toast.busy': '렌더링 중입니다…',
+  'toast.tempoShifted': '템포를 바꿨습니다 — 기존 루프는 음정이 함께 따라갑니다',
+  'toast.flushFailed': '녹음 마무리 신호를 받지 못했습니다 — 녹음된 부분까지만 저장했습니다',
+  'toast.inputSwitchFailed': '장치를 바꾸지 못했습니다 — 쓰던 입력을 그대로 유지합니다',
 
   'help.title': 'Lýra — 도움말 & 단축키',
   'help.intro': 'Lýra는 브라우저 안에서만 동작하는 4~6트랙 루프스테이션입니다. 녹음·편집·렌더링 모두 기기에서 이루어지고 서버로 전송되지 않습니다.',
@@ -488,6 +491,9 @@ const en: Dict = {
   'toast.tapAgain': 'Keep tapping a little more',
   'toast.recording': 'Recording starts on the bar line',
   'toast.busy': 'Rendering…',
+  'toast.tempoShifted': 'Tempo changed — existing loops follow the tempo in pitch',
+  'toast.flushFailed': 'The recorder never confirmed its last block — kept only what arrived',
+  'toast.inputSwitchFailed': 'The device change was refused — the current input stays in use',
 
   'help.title': 'Lýra — Help & shortcuts',
   'help.intro': 'Lýra is a 4–6 track loop station that runs entirely in your browser. Recording, editing and rendering happen on your device and are never uploaded.',
