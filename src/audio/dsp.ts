@@ -79,6 +79,44 @@ export function applyOverdub(
   return { loop: mixLoops(base, take, gain), undo: base };
 }
 
+/**
+ * Write a recorded take into a fresh loop of `frames` frames so that the take's
+ * own start lands on loop position `offsetFrames` (the phase at which recording
+ * began) and the rest of the loop stays silent.
+ *
+ * This is the trim-then-place order the recorder commits with: only the frames
+ * actually performed (`keepFrames`) are copied, and they wrap around the loop
+ * end exactly like playback would. Rotating first and trimming afterwards — the
+ * previous order — cut the wrong side of the loop whenever recording did not
+ * start on the loop origin, which stored silence instead of the take.
+ */
+export function placeTake(
+  channels: Float32Array[],
+  offsetFrames: number,
+  keepFrames: number,
+  frames = channels[0]?.length ?? 0,
+): Float32Array[] {
+  const length = Math.max(1, frames);
+  const keep = Math.max(0, Math.min(length, Math.round(keepFrames)));
+  const offset = ((Math.round(offsetFrames) % length) + length) % length;
+  return channels.map((channel) => {
+    const out = new Float32Array(length);
+    const first = Math.min(keep, length - offset);
+    if (first > 0) out.set(channel.subarray(0, first), offset);
+    const rest = keep - first;
+    if (rest > 0) out.set(channel.subarray(first, first + rest), 0);
+    return out;
+  });
+}
+
+/** Deep copy of a loop's sample data. */
+export function cloneLoop(buffer: LoopBuffer): LoopBuffer {
+  return {
+    sampleRate: buffer.sampleRate,
+    channels: buffer.channels.map((channel) => new Float32Array(channel)),
+  };
+}
+
 /** Rotate a loop so that what was at `offset` frames moves to frame 0. */
 export function rotateFrames(channels: Float32Array[], offset: number): Float32Array[] {
   const frames = channels[0]?.length ?? 0;

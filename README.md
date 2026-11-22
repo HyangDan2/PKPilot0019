@@ -74,7 +74,7 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # Vitest 66개
+npm test           # Vitest 106개 (단위 + 오디오 엔진 통합 QA)
 npx tsc --noEmit
 npm run build
 ```
@@ -89,6 +89,7 @@ src/
   store/    studio state + IndexedDB autosave
   hooks/    media query · QWERTY performance keys
 tests/      clock · dsp · wav · mp3 · project · i18n · samples · brand · layout
+            engine · studio (가짜 Web Audio 하네스로 녹음 확정·재시작·내보내기 검증)
 ```
 
 ## 브라우저 · 하드웨어 제약 (사실 그대로)
