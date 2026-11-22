@@ -248,10 +248,11 @@ class Studio {
     let changed = false;
     const tracks = this.state.project.tracks.map((track) => {
       const buffer = engine.getTrackBuffer(track.id);
-      if (buffer !== track.buffer) {
+      const active = engine.isTrackActive(track.id);
+      if (buffer !== track.buffer || active !== track.active) {
         changed = true;
         if (buffer) peaksFor(buffer);
-        return { ...track, buffer, active: track.active };
+        return { ...track, buffer, active };
       }
       return track;
     });
@@ -469,19 +470,36 @@ class Studio {
   }
 
   stopTrack(id: number): void {
-    engine.setTrackSettings(id, { active: false });
+    engine.setTrackActive(id, false);
     this.patchTrack(id, { active: false });
   }
 
+  /**
+   * Track PLAY / STOP. The target state is decided from the project before the
+   * transport is touched: starting the transport first created the track source
+   * and the old toggle then read that as "already playing" and stopped it again.
+   */
   async toggleTrackPlay(id: number): Promise<void> {
     await engine.ensure();
-    if (!engine.isPlaying) engine.play();
-    engine.toggleTrackPlayback(id);
+    if (!engine.getTrackBuffer(id)) return;
+    if (!engine.isPlaying) {
+      // With the transport stopped this button means "play this track": arm it
+      // and roll the transport. Telling the engine to start the transport first
+      // and toggling afterwards stopped the freshly created source again.
+      engine.setTrackActive(id, true);
+      this.patchTrack(id, { active: true });
+      engine.play();
+      return;
+    }
+    const current = this.state.project.tracks.find((track) => track.id === id)?.active ?? true;
+    const next = !current;
+    engine.setTrackActive(id, next);
+    this.patchTrack(id, { active: next });
   }
 
   async clearTrack(id: number): Promise<void> {
     engine.clearTrack(id);
-    this.patchTrack(id, { buffer: null });
+    this.patchTrack(id, { buffer: null, active: true });
     this.toast(this.tr('track.cleared'));
   }
 

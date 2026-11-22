@@ -5,6 +5,7 @@ import {
   fitFrames,
   loopPeaks,
   mixLoops,
+  placeTake,
   resampleLoop,
   rotateFrames,
   softClip,
@@ -129,5 +130,31 @@ describe('loop shaping', () => {
     expect(softClip(2)).toBeGreaterThan(0.98);
     expect(softClip(-2)).toBeGreaterThan(-2);
     expect(softClip(0.5)).toBe(0.5);
+  });
+});
+
+describe('take placement', () => {
+  it('writes a take at the loop phase it was recorded on', () => {
+    const take = new Float32Array([1, 2, 3, 4]);
+    const placed = placeTake([take], 4, 4, 10);
+    expect(Array.from(placed[0])).toEqual([0, 0, 0, 0, 1, 2, 3, 4, 0, 0]);
+  });
+
+  it('wraps the part of a take that runs past the loop end', () => {
+    const take = new Float32Array([1, 2, 3, 4]);
+    const placed = placeTake([take], 8, 4, 10);
+    expect(Array.from(placed[0])).toEqual([3, 4, 0, 0, 0, 0, 0, 0, 1, 2]);
+  });
+
+  it('keeps only the performed frames and leaves the rest silent', () => {
+    const take = new Float32Array([1, 2, 3, 4, 5, 6]);
+    const placed = placeTake([take], 0, 2, 6);
+    expect(Array.from(placed[0])).toEqual([1, 2, 0, 0, 0, 0]);
+  });
+
+  it('places an early-stopped take at its own phase instead of cutting it away', () => {
+    const take = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    const placed = placeTake([take], 6, 2, 8);
+    expect(Array.from(placed[0])).toEqual([0, 0, 0, 0, 0, 0, 1, 2]);
   });
 });

@@ -234,7 +234,7 @@ export async function renderProject(
     return files;
   }
 
-  const tracks = project.tracks.filter((track) => !!track.buffer);
+  const tracks = project.tracks.filter((track) => !!track.buffer && track.active);
   if (!tracks.length) return [];
   let index = 0;
   for (const track of tracks) {
