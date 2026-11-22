@@ -246,7 +246,7 @@ export function ChannelStrip({ track, runtime, selected, lang, level }: ChannelS
       <input
         ref={fileInput}
         type="file"
-        accept="audio/*,.wav,.mp3,.ogg,.m4a,.flac"
+        accept="audio/*,.wav,.mp3,.ogg,.opus,.webm,.m4a,.flac"
         className="sr-only"
         onChange={(event) => {
           const file = event.target.files?.[0];

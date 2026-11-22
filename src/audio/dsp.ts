@@ -147,6 +147,33 @@ export function fitFrames(
   return out;
 }
 
+/**
+ * Resize a loop to `frames` frames by linear resampling at the same sample
+ * rate. Shorter and longer both keep all of the audible material, but the
+ * pitch follows the length — this is the tape-style fit used until a real
+ * time-stretcher exists, never a trim.
+ */
+export function resizeLoop(buffer: LoopBuffer, frames: number): LoopBuffer {
+  const target = Math.max(1, Math.round(frames));
+  const sourceFrames = buffer.channels[0]?.length ?? 0;
+  if (!sourceFrames) return { sampleRate: buffer.sampleRate, channels: [] };
+  if (sourceFrames === target) return buffer;
+  const ratio = target / sourceFrames;
+  const channels = buffer.channels.map((source) => {
+    const out = new Float32Array(target);
+    for (let i = 0; i < target; i += 1) {
+      const position = i / ratio;
+      const index = Math.floor(position);
+      const frac = position - index;
+      const a = source[index] ?? 0;
+      const b = source[index + 1] ?? a;
+      out[i] = a + (b - a) * frac;
+    }
+    return out;
+  });
+  return { sampleRate: buffer.sampleRate, channels };
+}
+
 /** Normalise the sample rate of a loop to the context's rate. */
 export function resampleLoop(buffer: LoopBuffer, targetRate: number): LoopBuffer {
   if (buffer.sampleRate === targetRate) return buffer;

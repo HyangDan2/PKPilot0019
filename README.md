@@ -28,8 +28,9 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 ### 트랜스포트
 - `AudioContext.currentTime` 기반 룩어헤드 스케줄러와 마디 경계 퀀타이즈 녹음
 - BPM 40–220 (Tap Tempo), 박자 `4/4 · 3/4 · 6/8`, 마디 `1/2/4/8`
-- 1마디 Count-in, 메트로놈, 마스터 dB 미터, 레이턴시 보정 `-150ms ~ +150ms`
+- 1마디 Count-in, 메트로놈, 마스터 dB 미터, 레이턴시 보정 `-150ms ~ +150ms` (음수 보정은 캡처 구간을 앞으로 당깁니다)
 - 오버더빙 1단계 Undo
+- **템포 정책**: BPM·마디·박자를 바꿔도 저장된 PCM은 한 샘플도 자르거나 다시 굽지 않습니다. 루프는 새 그리드에 재생 속도로 맞춰지므로, 타임 스트레처를 넣기 전까지는 테이프처럼 음정이 함께 따라갑니다.
 
 ### 4~6 트랙 채널 스트립
 - SVG 원형 루프 진행 링 + 실시간 파형, 상태 뱃지(`EMPTY/ARMED/COUNT-IN/REC/PLAY/OVERDUB/STOPPED`)
@@ -55,8 +56,8 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 - `OfflineAudioContext` 무결점 렌더링 — 마스터 믹스 또는 트랙별 스템
 - **WAV** 16/24-bit · 44.1/48 kHz
 - **MP3** 128/192/320 kbps (`@breezystack/lamejs` Vite ESM 번들)
-- **WebM/Opus** (`MediaRecorder` 지원 코덱 자동 감지)
-- `.lps.json` 프로젝트 저장/불러오기 + IndexedDB 자동 복구
+- **WebM/Opus** (`MediaRecorder` 지원 코덱 자동 감지, Ogg 컨테이너면 `.ogg`로 저장)
+- `.lps.json` 프로젝트 저장/불러오기 + IndexedDB 자동 복구(채널은 `Float32Array` 바이너리로 저장)
 
 ### 내장 샘플 프로젝트 3종
 외부 파일 없이 결정론적 DSP로 생성한 3개의 멀티트랙 루프입니다. **`📁` 프로젝트 드로워** 맨 아래
@@ -96,7 +97,8 @@ tests/      clock · dsp · wav · mp3 · project · i18n · samples · brand ·
 
 - **출력 장치 선택(`AudioContext.setSinkId`)**: Chromium 계열만 지원. Firefox/Safari에서는 OS 기본 출력을 쓰며 I/O 시트에 안내 배지가 표시됩니다.
 - **Web MIDI**: Chromium 계열에서 지원. 미지원 브라우저에서는 건반·패드로 연주할 수 있습니다.
-- **WebM/Opus 내보내기**: `MediaRecorder`가 지원하는 브라우저에서만 활성화되며, 이 경로는 실시간 캡처입니다(다른 포맷은 오프라인 렌더링).
+- **WebM/Opus 내보내기**: `MediaRecorder`가 지원하는 브라우저에서만 활성화되며, 이 경로는 실시간 캡처입니다(다른 포맷은 오프라인 렌더링). 코덱이 Ogg 컨테이너로만 잡히는 브라우저에서는 파일 확장자가 `.ogg`가 됩니다.
+- **타임 스트레칭**: 아직 없습니다. 템포를 바꾸면 루프는 새 그리드에 맞춰 재생 속도가 바뀌고 음정이 함께 이동합니다(오디오 데이터 자체는 보존).
 - 마이크 권한은 사용자가 I/O 시트에서 직접 허용해야 하며, 거부되면 악기·파일 입력으로 계속 사용할 수 있습니다.
 - 오디오는 첫 사용자 제스처(재생/녹음) 후에 시작됩니다(브라우저 자동재생 정책).
 

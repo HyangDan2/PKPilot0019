@@ -15,15 +15,17 @@ import {
   loopSeconds,
   nextBarBoundary,
 } from './clock';
-import { applyOverdub, cloneLoop, extractRegion, fitFrames, peakOf, placeTake, resampleLoop } from './dsp';
+import { applyOverdub, cloneLoop, extractRegion, fitFrames, peakOf, placeTake, resizeLoop, resampleLoop } from './dsp';
+import type { RecordedChunk } from './dsp';
 import { DrumKit, type DrumKitName } from './drums';
-import { LoopRecorder } from './recorder';
+import { LoopRecorder, RecorderFlushTimeoutError, type RecorderOptions } from './recorder';
 import { PolySynth, type SynthPresetName } from './synth';
 import {
   DEFAULT_FX,
   type LoopBuffer,
   type ProjectState,
   type TrackFx,
+  type TrackSource,
   type TrackStatus,
 } from './types';
 
@@ -81,6 +83,26 @@ interface EngineTrack {
   connectedMic: GainNode | null;
   connectedInstrument: GainNode | null;
   inputConnected: boolean;
+  /** Which input produced this track's latest audio (Mic / Inst / File). */
+  inputSource: TrackSource;
+  /** Token of the take that owns this track's buffer right now. */
+  ownerToken: number;
+  /** Applied commits run one at a time, in finalize order. */
+  commitChain: Promise<void>;
+  /** Highest take token whose audio has been committed to this track. */
+  committedToken: number;
+}
+
+/** A browser-decodable audio file's bytes, handed to the engine asynchronously. */
+export type RecorderFactory = (
+  ctx: AudioContext,
+  source: AudioNode,
+  options?: RecorderOptions,
+) => Promise<LoopRecorder>;
+
+export interface EngineError {
+  code: 'recorder-flush' | 'import-failed' | 'input-switch-failed';
+  message: string;
 }
 
 export interface EngineLevels {
@@ -119,10 +141,15 @@ export class AudioEngine {
   private reverbBus!: GainNode;
   private reverbReturn!: GainNode;
   private instrumentBus!: GainNode;
+  /** The instrument's own monitor path; muted while a track captures it. */
+  private instrumentMonitor!: GainNode;
+  private static readonly INSTRUMENT_MONITOR_GAIN = 0.9;
   private metronomeBus!: GainNode;
   private tracks = new Map<number, EngineTrack>();
   private listeners = new Set<Listener>();
   private stateListeners = new Set<Listener>();
+  private errorListeners = new Set<(error: EngineError) => void>();
+  private readonly createRecorder: RecorderFactory;
 
   private bpm = 96;
   private beatsPerBar = 4;
@@ -155,6 +182,10 @@ export class AudioEngine {
 
   synth: PolySynth | null = null;
   drums: DrumKit | null = null;
+
+  constructor(options: { createRecorder?: RecorderFactory } = {}) {
+    this.createRecorder = options.createRecorder ?? LoopRecorder.create;
+  }
 
   get ready(): boolean {
     return !!this.ctx && this.started;
@@ -198,6 +229,17 @@ export class AudioEngine {
     for (const listener of this.stateListeners) listener();
   }
 
+  /** Audio-path failures the UI should tell the performer about. */
+  onError(listener: (error: EngineError) => void): () => void {
+    this.errorListeners.add(listener);
+    return () => this.errorListeners.delete(listener);
+  }
+
+  private reportError(code: EngineError['code'], error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    for (const listener of this.errorListeners) listener({ code, message });
+  }
+
   async init(options: Partial<EngineOptions> & { sampleRate?: number } = {}): Promise<void> {
     if (this.ctx) return;
     const Ctor =
@@ -236,9 +278,14 @@ export class AudioEngine {
     convolver.connect(this.reverbReturn);
     this.reverbReturn.connect(this.masterIn);
 
+    // Instruments have their own monitor path so a recording track can take
+    // them over without the performer hearing the bus twice (direct + track).
     this.instrumentBus = ctx.createGain();
     this.instrumentBus.gain.value = 0.9;
-    this.instrumentBus.connect(this.masterIn);
+    this.instrumentMonitor = ctx.createGain();
+    this.instrumentMonitor.gain.value = AudioEngine.INSTRUMENT_MONITOR_GAIN;
+    this.instrumentBus.connect(this.instrumentMonitor);
+    this.instrumentMonitor.connect(this.masterIn);
     this.metronomeBus = ctx.createGain();
     this.metronomeBus.gain.value = 1;
     this.metronomeBus.connect(this.masterIn);
@@ -286,13 +333,18 @@ export class AudioEngine {
 
   // ── transport ────────────────────────────────────────────────────────────
 
+  /**
+   * Tempo and grid changes never rewrite stored audio (see `startTrackSource`):
+   * every recorded sample stays in the track, and the loop is fitted to the new
+   * grid at playback by rate, the way a tape speeds up. Time-stretching is not
+   * implemented, so pitch follows the tempo on purpose.
+   */
   setBpm(bpm: number): void {
     const next = Math.max(40, Math.min(220, Math.round(bpm)));
     if (next === this.bpm) return;
     const wasPlaying = this.playing;
     this.stop(false);
     this.bpm = next;
-    this.refitBuffers();
     if (wasPlaying) this.play();
     this.emit();
   }
@@ -303,7 +355,6 @@ export class AudioEngine {
     const wasPlaying = this.playing;
     this.stop(false);
     this.bars = next;
-    this.refitBuffers();
     if (wasPlaying) this.play();
     this.emit();
   }
@@ -314,9 +365,14 @@ export class AudioEngine {
     this.stop(false);
     this.beatsPerBar = beatsPerBar;
     this.beatUnit = beatUnit;
-    this.refitBuffers();
     if (wasPlaying) this.play();
     this.emit();
+  }
+
+  /** True when any track holds audio that a tempo change will re-pitch. */
+  hasLoops(): boolean {
+    for (const track of this.tracks.values()) if (track.buffer) return true;
+    return false;
   }
 
   setMetronome(on: boolean): void {
@@ -474,6 +530,10 @@ export class AudioEngine {
       connectedMic: null,
       connectedInstrument: null,
       inputConnected: false,
+      inputSource: 'Mic',
+      ownerToken: 0,
+      commitChain: Promise.resolve(),
+      committedToken: 0,
     });
   }
 
@@ -547,7 +607,16 @@ export class AudioEngine {
   /** Read-back of a track's mixer state (used by the store and by QA tests). */
   getTrackSettings(
     id: number,
-  ): { volume: number; pan: number; mute: boolean; solo: boolean; armed: boolean; active: boolean; fx: TrackFx } | null {
+  ): {
+    volume: number;
+    pan: number;
+    mute: boolean;
+    solo: boolean;
+    armed: boolean;
+    active: boolean;
+    source: TrackSource;
+    fx: TrackFx;
+  } | null {
     const track = this.tracks.get(id);
     if (!track) return null;
     return {
@@ -557,8 +626,14 @@ export class AudioEngine {
       solo: track.solo,
       armed: track.armed,
       active: track.active,
+      source: track.inputSource,
       fx: this.readFx(track),
     };
+  }
+
+  /** Which input path (Mic / Inst / File) last fed this track. */
+  getTrackSource(id: number): TrackSource | null {
+    return this.tracks.get(id)?.inputSource ?? null;
   }
 
   applyFx(track: EngineTrack, fx: TrackFx): void {
@@ -585,23 +660,41 @@ export class AudioEngine {
     return null;
   }
 
-  setTrackBuffer(id: number, buffer: LoopBuffer | null, options?: { keepUndo?: boolean }): void {
+  setTrackBuffer(
+    id: number,
+    buffer: LoopBuffer | null,
+    options?: { keepUndo?: boolean; fit?: boolean },
+  ): void {
     const track = this.tracks.get(id);
     if (!track || !this.ctx) return;
     this.invalidateTake(track);
     track.epoch += 1;
+    track.ownerToken = this.claimToken();
     const wasPlaying = this.playing;
     this.stopTrackSource(track);
-    track.buffer = buffer
-      ? {
-          sampleRate: this.ctx.sampleRate,
-          channels: fitFrames(resampleLoop(buffer, this.ctx.sampleRate).channels, loopFrames(this.loopSecondsValue, this.ctx.sampleRate)),
-        }
-      : null;
+    // `fit` trims or pads the incoming audio to the current grid (imports do
+    // that once, on purpose). Restores pass `fit:false` so a loop recorded at
+    // another tempo keeps every sample.
+    track.buffer = buffer ? this.normaliseLoop(buffer, options?.fit !== false) : null;
     if (!options?.keepUndo) track.undo = null;
     track.active = true;
     if (buffer && wasPlaying) this.startTrackSource(track, this.nextGridTime(this.ctx.currentTime));
     this.emit();
+  }
+
+  private claimToken(): number {
+    this.sessionToken += 1;
+    return this.sessionToken;
+  }
+
+  /** Sample-rate normalise a loop, optionally fitting it to the loop grid. */
+  private normaliseLoop(buffer: LoopBuffer, fitToGrid: boolean): LoopBuffer {
+    const ctx = this.ctx as AudioContext;
+    const resampled = resampleLoop(buffer, ctx.sampleRate);
+    const channels = fitToGrid
+      ? fitFrames(resampled.channels, loopFrames(this.loopSecondsValue, ctx.sampleRate))
+      : resampled.channels;
+    return { sampleRate: ctx.sampleRate, channels };
   }
 
   getTrackBuffer(id: number): LoopBuffer | null {
@@ -625,6 +718,8 @@ export class AudioEngine {
   undoOverdub(id: number): boolean {
     const track = this.tracks.get(id);
     if (!track || !track.undo) return false;
+    track.epoch += 1;
+    track.ownerToken = this.claimToken();
     track.buffer = track.undo;
     track.undo = null;
     this.refreshTrackSource(track);
@@ -647,6 +742,10 @@ export class AudioEngine {
     this.setTrackActive(id, !track.active);
   }
 
+  /**
+   * Restart a track's source so it picks up a changed buffer or grid. Stored
+   * PCM is never rewritten here; the new grid maps through playback rate.
+   */
   private refreshTrackSource(track: EngineTrack): void {
     const playing = this.playing;
     this.stopTrackSource(track);
@@ -666,6 +765,20 @@ export class AudioEngine {
     this.stopTrackSource(track);
     const source = this.ctx.createBufferSource();
     source.buffer = this.toAudioBuffer(track.buffer);
+    // Stored audio keeps its recorded frame count. If the grid has changed since
+    // (tempo, bars or signature), the whole loop is played at the rate that fits
+    // it into the new grid — every sample is heard, the pitch follows the tempo
+    // until a real time-stretcher exists.
+    const targetFrames = loopFrames(this.loopSecondsValue, this.ctx.sampleRate);
+    const bufferFrames = Math.max(1, track.buffer.channels[0]?.length ?? 1);
+    const rate = bufferFrames / targetFrames;
+    if (Number.isFinite(rate) && rate > 0) {
+      try {
+        source.playbackRate.value = rate;
+      } catch {
+        // A context without playbackRate (very old) plays at 1x.
+      }
+    }
     source.loop = true;
     source.loopStart = 0;
     source.loopEnd = source.buffer.duration;
@@ -689,27 +802,22 @@ export class AudioEngine {
     track.source = null;
   }
 
-  private refitBuffers(): void {
-    if (!this.ctx) return;
-    const frames = loopFrames(this.loopSecondsValue, this.ctx.sampleRate);
-    for (const track of this.tracks.values()) {
-      if (!track.buffer) continue;
-      const resampled = resampleLoop(track.buffer, this.ctx.sampleRate);
-      track.buffer = { sampleRate: this.ctx.sampleRate, channels: fitFrames(resampled.channels, frames) };
-      if (track.undo) track.undo = { sampleRate: this.ctx.sampleRate, channels: fitFrames(resampleLoop(track.undo, this.ctx.sampleRate).channels, frames) };
-    }
-  }
-
   // ── recording ───────────────────────────────────────────────────────────
 
   async record(id: number): Promise<boolean> {
     await this.ensure();
-    const track = this.tracks.get(id);
+    let track = this.tracks.get(id);
     if (!track || !this.ctx) return false;
     if (track.rec) {
       this.stopRecording(id);
       return true;
     }
+    // A previous take may still be flushing. Let its commit land before this
+    // take snapshots its base, so a quick re-record overdubs onto the take that
+    // just finished instead of racing a stale write or dropping it.
+    await track.commitChain.catch(() => undefined);
+    track = this.tracks.get(id);
+    if (!track || !this.ctx || track.rec) return false;
     if (!this.playing) this.play();
     if (!this.playing) return false;
 
@@ -728,7 +836,7 @@ export class AudioEngine {
       armAt += barSec;
     }
     const session: RecSession = {
-      token: (this.sessionToken += 1),
+      token: this.claimToken(),
       mode: track.buffer ? 'overdub' : 'rec',
       start: armAt,
       end: armAt + loopSec,
@@ -740,24 +848,31 @@ export class AudioEngine {
       recorder: null,
     };
     track.rec = session;
+    track.ownerToken = session.token;
     this.usingInstrument = !this.micStream;
     this.connectInputs(track);
     try {
-      const recorder = await LoopRecorder.create(this.ctx, track.input, {
+      const recorder = await this.createRecorder(this.ctx, track.input, {
         channelCount: this.inputChannelMode === 'stereo' ? 2 : 1,
       });
       // The track may have been cleared, re-buffered or the project swapped
       // while the worklet module loaded. This take then owns nothing.
       if (
         track.rec !== session ||
+        track.ownerToken !== session.token ||
         this.generation !== session.generation ||
         track.epoch !== session.trackEpoch
       ) {
-        void recorder.stopAsync().then(() => recorder.dispose());
+        void recorder.stopAsync().then(
+          () => recorder.dispose(),
+          () => recorder.dispose(),
+        );
         return false;
       }
       session.recorder = recorder;
       recorder.start();
+      // Only a take that actually started owns the track's input label.
+      track.inputSource = this.usingInstrument ? 'Inst' : 'Mic';
     } catch {
       if (track.rec === session) {
         track.rec = null;
@@ -811,7 +926,12 @@ export class AudioEngine {
     track.epoch += 1;
     this.disconnectInputs(track);
     const recorder = session.recorder;
-    if (recorder) void recorder.stopAsync().then(() => recorder.dispose());
+    if (recorder) {
+      void recorder.stopAsync().then(
+        () => recorder.dispose(),
+        () => recorder.dispose(),
+      );
+    }
     return true;
   }
 
@@ -877,6 +997,31 @@ export class AudioEngine {
       }
     }
     track.inputConnected = !!track.connectedMic || !!track.connectedInstrument;
+    this.refreshInstrumentMonitor();
+  }
+
+  /**
+   * The instrument bus feeds the master directly so the performer hears it
+   * before anything is recorded. As soon as a track captures it, that direct
+   * path is muted and the track chain becomes the only route to the master:
+   * one output, no doubled level and no speaker-to-microphone loop through the
+   * amplified copy.
+   */
+  private refreshInstrumentMonitor(): void {
+    if (!this.instrumentMonitor) return;
+    let captured = false;
+    for (const track of this.tracks.values()) {
+      if (track.connectedInstrument) {
+        captured = true;
+        break;
+      }
+    }
+    const target = captured ? 0 : AudioEngine.INSTRUMENT_MONITOR_GAIN;
+    try {
+      this.instrumentMonitor.gain.setTargetAtTime(target, this.ctx?.currentTime ?? 0, 0.01);
+    } catch {
+      this.instrumentMonitor.gain.value = target;
+    }
   }
 
   private disconnectInputs(track: EngineTrack): void {
@@ -893,6 +1038,7 @@ export class AudioEngine {
     track.connectedMic = null;
     track.connectedInstrument = null;
     track.inputConnected = false;
+    this.refreshInstrumentMonitor();
   }
 
   private finalize(track: EngineTrack, nowOverride?: number): void {
@@ -910,17 +1056,91 @@ export class AudioEngine {
     }
     track.rec = null;
     const recorder = session.recorder;
+    this.disconnectInputs(track);
     if (!ctx || !recorder) {
-      this.disconnectInputs(track);
       this.emit();
+      this.emitState();
       return;
     }
+    // The take is queued, not committed in place: a second commit on the same
+    // track waits for this one, so two flushes can never write over each other
+    // or land out of order.
+    this.enqueueCommit(track, session, recorder);
+    this.emit();
+    this.emitState();
+  }
+
+  /**
+   * Append a take's commit to its track's chain. The chain is the track's only
+   * writer: commits run one at a time, in finalize order.
+   */
+  private enqueueCommit(track: EngineTrack, session: RecSession, recorder: LoopRecorder): void {
+    const token = session.token;
+    const job = async (): Promise<void> => {
+      // Ownership is re-checked here and again after the flush: the take must
+      // still be the one that claimed this track, in this project, on buffers
+      // that were not cleared, imported over or swapped while it recorded.
+      if (!this.ownsTrack(track, token, session)) {
+        recorder.dispose();
+        return;
+      }
+      let chunks: RecordedChunk[];
+      try {
+        chunks = await recorder.stopAsync();
+      } catch (error) {
+        if (error instanceof RecorderFlushTimeoutError) {
+          // The audio thread never acknowledged its last block. Keep what did
+          // arrive (never claim a complete take) and tell the UI.
+          chunks = error.chunks;
+          this.reportError('recorder-flush', error);
+        } else {
+          recorder.dispose();
+          this.reportError('recorder-flush', error);
+          return;
+        }
+      }
+      if (!this.ownsTrack(track, token, session)) {
+        recorder.dispose();
+        return;
+      }
+      this.applyTake(track, session, chunks);
+      track.committedToken = token;
+      recorder.dispose();
+      this.emit();
+      this.emitState();
+    };
+    track.commitChain = track.commitChain.then(job, job).catch((error: unknown) => {
+      this.reportError('recorder-flush', error);
+    });
+  }
+
+  /**
+   * A commit owns the track only while the same track object lives in the same
+   * project generation with the same buffer epoch, it is the newest take, and
+   * no newer take has already committed.
+   */
+  private ownsTrack(track: EngineTrack, token: number, session: RecSession): boolean {
+    return (
+      this.tracks.get(track.id) === track &&
+      this.generation === session.generation &&
+      track.epoch === session.trackEpoch &&
+      track.ownerToken === token &&
+      token > track.committedToken
+    );
+  }
+
+  /** Mix a flushed take onto the track's loop, honouring latency and loop phase. */
+  private applyTake(track: EngineTrack, session: RecSession, chunks: RecordedChunk[]): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
     const mode = session.mode;
     const sessionFrames = session.frames;
     const base = session.base;
-    const now = nowOverride ?? ctx.currentTime;
-    const latency = Math.max(0, this.latencyMs) / 1000;
+    // Negative calibration pulls the take earlier instead of being clamped to
+    // zero, so both directions of the trim actually move the captured audio.
+    const latency = Math.max(-150, Math.min(150, this.latencyMs)) / 1000;
     const sampleRate = ctx.sampleRate;
+    const now = ctx.currentTime;
     const startAt = session.start + latency;
     const offsetFrames = Math.round(
       ((((session.start - this.loopStart) % this.loopSecondsValue) + this.loopSecondsValue) %
@@ -931,50 +1151,35 @@ export class AudioEngine {
       now < session.end ? Math.max(0, Math.round((now - startAt) * sampleRate)) : sessionFrames;
     const keep = Math.max(1, Math.min(sessionFrames, session.trim || captured || sessionFrames));
     const channelCount = this.inputChannelMode === 'stereo' ? 2 : 1;
-    const generation = session.generation;
-    const epoch = session.trackEpoch;
 
-    this.disconnectInputs(track);
-    void recorder.stopAsync().then((chunks) => {
-      // A clear, import, project swap or engine restart happened while the
-      // chunks were flushing: this take belongs to nothing any more.
-      const stillCurrent =
-        this.tracks.get(track.id) === track &&
-        track.epoch === epoch &&
-        this.generation === generation;
-      if (!stillCurrent) {
-        recorder.dispose();
-        return;
-      }
-      const region = extractRegion(chunks, startAt, sessionFrames, sampleRate, channelCount);
-      // Keep only the frames actually performed, then place them at the loop
-      // phase recording began on. The previous order (rotate, then trim the
-      // head) cut the wrong side of the loop and stored silence for takes that
-      // stopped before the loop end.
-      const placed = placeTake(region, offsetFrames, keep, sessionFrames);
-      const currentFrames = loopFrames(this.loopSecondsValue, sampleRate);
-      const channels =
-        currentFrames === sessionFrames ? placed : fitFrames(placed, currentFrames);
-      const loop: LoopBuffer = { sampleRate, channels };
-      if (mode === 'overdub' && (base ?? track.buffer)) {
-        const committed = applyOverdub(base ?? (track.buffer as LoopBuffer), loop, 1);
-        track.buffer = committed.loop;
-        track.undo = committed.undo;
-      } else {
-        track.buffer = loop;
-        track.undo = null;
-      }
-      track.active = true;
-      if (this.playing) {
-        const at = this.nextGridTime(ctx.currentTime);
-        this.startTrackSource(track, at);
-      }
-      recorder.dispose();
-      this.emit();
-      this.emitState();
-    });
-    this.emit();
-    this.emitState();
+    const region = extractRegion(chunks, startAt, sessionFrames, sampleRate, channelCount);
+    // Keep only the frames actually performed, then place them at the loop
+    // phase recording began on. The previous order (rotate, then trim the
+    // head) cut the wrong side of the loop and stored silence for takes that
+    // stopped before the loop end.
+    const placed = placeTake(region, offsetFrames, keep, sessionFrames);
+    const currentFrames = loopFrames(this.loopSecondsValue, sampleRate);
+    // A grid change in the middle of a take must not cut its samples away:
+    // resize (pitch follows) instead of trimming.
+    const channels =
+      currentFrames === sessionFrames ? placed : resizeLoop({ sampleRate, channels: placed }, currentFrames).channels;
+    const loop: LoopBuffer = { sampleRate, channels };
+    if (mode === 'overdub' && (base ?? track.buffer)) {
+      // The loop may have been recorded at another tempo. Match its frame count
+      // to this take's grid before mixing so both layers line up.
+      const previous = resizeLoop(base ?? (track.buffer as LoopBuffer), sessionFrames);
+      const committed = applyOverdub(previous, loop, 1);
+      track.buffer = committed.loop;
+      track.undo = committed.undo;
+    } else {
+      track.buffer = loop;
+      track.undo = null;
+    }
+    track.active = true;
+    if (this.playing) {
+      const at = this.nextGridTime(ctx.currentTime);
+      this.startTrackSource(track, at);
+    }
   }
 
   // ── runtime read-outs ───────────────────────────────────────────────────
@@ -1057,18 +1262,48 @@ export class AudioEngine {
     return this.inputGainValue;
   }
 
-  setProcessing(next: Partial<typeof this.processing>): void {
-    this.processing = { ...this.processing, ...next };
-    if (this.micStream) void this.requestMicrophone(this.inputDeviceId ?? undefined);
+  /**
+   * Change browser voice processing. With an open microphone the stream is
+   * re-opened with the new constraints; if that fails the previous settings and
+   * the previous stream stay in force, so a rejected change never leaves the
+   * performer with no input or with a setting the device refused.
+   */
+  async setProcessing(next: Partial<typeof this.processing>): Promise<boolean> {
+    const previous = this.processing;
+    this.processing = { ...previous, ...next };
+    if (!this.micStream) {
+      this.emit();
+      return true;
+    }
+    const ok = await this.requestMicrophone(this.inputDeviceId ?? undefined);
+    if (!ok) {
+      this.processing = previous;
+      this.reportError('input-switch-failed', new Error('processing change was rejected'));
+      return false;
+    }
+    this.emit();
+    return true;
   }
 
   getProcessing(): typeof this.processing {
     return { ...this.processing };
   }
 
-  setInputChannelMode(mode: 'mono' | 'stereo'): void {
+  /** Switch mono/stereo capture, keeping the old mode if the device refuses. */
+  async setInputChannelMode(mode: 'mono' | 'stereo'): Promise<boolean> {
+    if (mode === this.inputChannelMode) return true;
+    const previous = this.inputChannelMode;
     this.inputChannelMode = mode;
+    if (this.micStream) {
+      const ok = await this.requestMicrophone(this.inputDeviceId ?? undefined);
+      if (!ok) {
+        this.inputChannelMode = previous;
+        this.reportError('input-switch-failed', new Error('channel mode change was rejected'));
+        return false;
+      }
+    }
     this.emit();
+    return true;
   }
 
   getInputChannelMode(): 'mono' | 'stereo' {
@@ -1077,6 +1312,11 @@ export class AudioEngine {
 
   hasMicrophone(): boolean {
     return !!this.micStream;
+  }
+
+  /** Device the open stream came from (null = browser default). */
+  getInputDeviceId(): string | null {
+    return this.inputDeviceId;
   }
 
   async requestMicrophone(deviceId?: string): Promise<boolean> {
@@ -1231,17 +1471,14 @@ export class AudioEngine {
       track.pan = trackData.pan;
       // The saved loop state wins: a track stopped in the project stays stopped.
       track.active = trackData.active;
+      track.inputSource = trackData.source;
       this.applyFx(track, trackData.fx ?? DEFAULT_FX);
-      track.buffer = trackData.buffer
-        ? {
-            sampleRate: this.ctx!.sampleRate,
-            channels: fitFrames(
-              resampleLoop(trackData.buffer, this.ctx!.sampleRate).channels,
-              loopFrames(this.loopSecondsValue, this.ctx!.sampleRate),
-            ),
-          }
-        : null;
+      // A loaded loop keeps its recorded frame count: the grid may have changed
+      // since it was saved, and playback maps it instead of trimming samples.
+      track.buffer = trackData.buffer ? this.normaliseLoop(trackData.buffer, false) : null;
       track.undo = null;
+      track.ownerToken = 0;
+      track.committedToken = 0;
     }
     this.applyGains();
     this.emit();
@@ -1250,22 +1487,43 @@ export class AudioEngine {
 
   async importFile(id: number, data: ArrayBuffer): Promise<boolean> {
     await this.ensure();
-    if (!this.ctx) return false;
+    const ctx = this.ctx;
+    const track = this.tracks.get(id);
+    if (!ctx || !track) return false;
+    // Claim the track before decoding. A take, a clear or a project swap that
+    // happens while the decoder runs wins; this result is then thrown away
+    // instead of landing in a project it was never dropped into.
+    const generation = this.generation;
+    const epoch = track.epoch;
+    const token = this.claimToken();
+    track.ownerToken = token;
+    let audio: AudioBuffer;
     try {
-      const audio = await this.ctx.decodeAudioData(data.slice(0));
-      const channels: Float32Array[] = [];
-      for (let ch = 0; ch < Math.min(2, audio.numberOfChannels); ch += 1) {
-        channels.push(new Float32Array(audio.getChannelData(ch)));
-      }
-      const loop: LoopBuffer = { sampleRate: audio.sampleRate, channels };
-      this.setTrackBuffer(id, loop);
-      const track = this.tracks.get(id);
-      if (track) track.active = true;
-      this.emit();
-      return true;
-    } catch {
+      audio = await ctx.decodeAudioData(data.slice(0));
+    } catch (error) {
+      this.reportError('import-failed', error);
       return false;
     }
+    if (
+      this.tracks.get(id) !== track ||
+      this.generation !== generation ||
+      track.epoch !== epoch ||
+      track.ownerToken !== token
+    ) {
+      return false;
+    }
+    const channels: Float32Array[] = [];
+    for (let ch = 0; ch < Math.min(2, audio.numberOfChannels); ch += 1) {
+      channels.push(new Float32Array(audio.getChannelData(ch)));
+    }
+    this.setTrackBuffer(id, { sampleRate: audio.sampleRate, channels });
+    const current = this.tracks.get(id);
+    if (current) {
+      current.active = true;
+      current.inputSource = 'File';
+    }
+    this.emit();
+    return true;
   }
 
   async restart(sampleRate?: number): Promise<void> {
@@ -1282,6 +1540,7 @@ export class AudioEngine {
       volume: track.volume,
       pan: track.pan,
       fx: this.readFx(track),
+      source: track.inputSource,
     }));
     const settings = {
       bpm: this.bpm,
@@ -1326,9 +1585,10 @@ export class AudioEngine {
       track.solo = entry.solo;
       track.armed = entry.armed;
       this.applyFx(track, entry.fx);
-      if (entry.buffer) this.setTrackBuffer(entry.id, entry.buffer, { keepUndo: true });
+      if (entry.buffer) this.setTrackBuffer(entry.id, entry.buffer, { keepUndo: true, fit: false });
       track.undo = entry.undo;
       track.active = entry.active;
+      track.inputSource = entry.source;
     }
     // Restore the microphone input on the new context when one was open.
     if (this.micStream) this.attachMicStream();
@@ -1366,6 +1626,10 @@ export class AudioEngine {
       this.scheduleMetronome(now);
       for (const track of this.tracks.values()) {
         if (!track.rec) continue;
+        // Wait past the take's end for the input stream to deliver its last
+        // block. Positive calibration reads later in the stream and needs that
+        // extra time; negative calibration reads earlier, so the small guard is
+        // enough and never holds the commit back.
         const wait = Math.max(0, this.latencyMs) / 1000 + 0.08;
         if (now >= track.rec.end + wait) this.finalize(track, now);
       }

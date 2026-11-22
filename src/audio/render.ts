@@ -130,6 +130,20 @@ async function renderTracks(
     track.buffer.channels.forEach((channel, index) => buffer.getChannelData(index).set(channel));
     const source = ctx.createBufferSource();
     source.buffer = buffer;
+    // A stored loop keeps its recorded frame count; the grid may have moved
+    // since (tempo, bars, signature). Same mapping as live playback: the whole
+    // loop is heard, fitted to the export length by rate.
+    const loopRate = buffer.duration / seconds;
+    if (Number.isFinite(loopRate) && loopRate > 0) {
+      try {
+        source.playbackRate.value = loopRate;
+      } catch {
+        // playbackRate is absent on a very old context.
+      }
+    }
+    source.loop = true;
+    source.loopStart = 0;
+    source.loopEnd = buffer.duration;
     source.connect(input);
     source.start(0);
   }
@@ -162,18 +176,27 @@ function mimeFor(format: ExportFormat): string {
   return format === 'wav' ? 'audio/wav' : format === 'mp3' ? 'audio/mpeg' : 'audio/webm';
 }
 
-export function webmSupported(): boolean {
-  if (typeof MediaRecorder === 'undefined') return false;
-  return ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'].some((type) =>
-    MediaRecorder.isTypeSupported(type),
+/** The Opus container this browser can actually record, or null. */
+export function opusMime(): string | null {
+  if (typeof MediaRecorder === 'undefined') return null;
+  return (
+    ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'].find((type) =>
+      MediaRecorder.isTypeSupported(type),
+    ) ?? null
   );
 }
 
-async function bufferToWebm(buffer: AudioBuffer): Promise<Blob> {
-  const mime =
-    ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'].find((type) =>
-      MediaRecorder.isTypeSupported(type),
-    ) ?? '';
+export function webmSupported(): boolean {
+  return opusMime() !== null;
+}
+
+/** Recording Opus into Ogg yields `.ogg`, not `.webm`; the name must match. */
+function extensionForMime(mime: string): string {
+  return mime.includes('ogg') ? 'ogg' : 'webm';
+}
+
+async function bufferToWebm(buffer: AudioBuffer): Promise<{ blob: Blob; ext: string }> {
+  const mime = opusMime();
   if (!mime) throw new Error('no-webm-codec');
   const Ctor =
     window.AudioContext ??
@@ -199,18 +222,27 @@ async function bufferToWebm(buffer: AudioBuffer): Promise<Blob> {
   recorder.stop();
   const blob = await done;
   await ctx.close();
-  return blob;
+  return { blob, ext: extensionForMime(mime) };
 }
 
-async function encode(buffer: AudioBuffer, options: ExportOptions): Promise<Blob> {
+async function encode(
+  buffer: AudioBuffer,
+  options: ExportOptions,
+): Promise<{ blob: Blob; ext: string }> {
   const data = audioDataOf(buffer);
   if (options.format === 'wav') {
     const bytes = encodeWav(data, options.bitDepth);
-    return new Blob([bytes.buffer as ArrayBuffer], { type: mimeFor('wav') });
+    return {
+      blob: new Blob([bytes.buffer as ArrayBuffer], { type: mimeFor('wav') }),
+      ext: extensionFor('wav'),
+    };
   }
   if (options.format === 'mp3') {
     const bytes = encodeMp3(data, options.bitrate);
-    return new Blob([bytes.buffer as ArrayBuffer], { type: mimeFor('mp3') });
+    return {
+      blob: new Blob([bytes.buffer as ArrayBuffer], { type: mimeFor('mp3') }),
+      ext: extensionFor('mp3'),
+    };
   }
   return bufferToWebm(buffer);
 }
@@ -222,13 +254,12 @@ export async function renderProject(
 ): Promise<ExportFile[]> {
   if (options.format === 'webm' && !webmSupported()) throw new Error('no-webm-codec');
   const base = sanitizeFileName(project.name);
-  const ext = extensionFor(options.format);
   const files: ExportFile[] = [];
 
   if (!options.stems) {
     const mixed = await renderTracks(project, options.sampleRate, null);
     onProgress?.(0.6);
-    const blob = await encode(mixed, options);
+    const { blob, ext } = await encode(mixed, options);
     onProgress?.(1);
     files.push({ name: `${base}.${ext}`, blob });
     return files;
@@ -239,7 +270,7 @@ export async function renderProject(
   let index = 0;
   for (const track of tracks) {
     const rendered = await renderTracks(project, options.sampleRate, track.id);
-    const blob = await encode(rendered, options);
+    const { blob, ext } = await encode(rendered, options);
     index += 1;
     onProgress?.(index / tracks.length);
     files.push({
