@@ -413,7 +413,7 @@ a { color: inherit; text-decoration: none; }
   grid-template-columns: repeat(var(--n, 4), minmax(196px, 1fr));
   grid-auto-rows: minmax(320px, 1fr);
   gap: 10px;
-  padding: 2px 0;
+  padding: 2px 0 8px;
   overflow: auto;            /* one row; horizontal scroll when the row is wider */
   align-items: stretch;
   scrollbar-width: thin;
@@ -684,6 +684,8 @@ input.fader, input.pan { flex: 1; min-width: 0; height: 18px; cursor: pointer; }
 .pick-chip.on.solo { border-color: var(--overdub); background: color-mix(in srgb, var(--overdub) 12%, transparent); color: var(--overdub); }
 .pick-chip.danger { color: var(--record); }
 .inline-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.inline-row > .toggle-btn.wide { width: auto; flex: 1 1 120px; }
+.inline-row > .octave-group { flex: none; }
 .inline-row.tight { gap: 6px; }
 .octave-group { display: flex; flex-direction: column; gap: 2px; }
 
