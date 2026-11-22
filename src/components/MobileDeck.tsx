@@ -124,7 +124,9 @@ export function MobileDeck({
       </div>
 
       {emptyProject && status === 'EMPTY' ? (
-        <SamplePrompt inDeck />
+        <div className="mobile-empty">
+          <SamplePrompt inDeck />
+        </div>
       ) : (
         <div className="mobile-stage" style={stageMinHeight ? { minHeight: stageMinHeight } : undefined}>
           <LoopRing

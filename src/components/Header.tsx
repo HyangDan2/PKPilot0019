@@ -10,6 +10,7 @@ import {
   IconCountIn,
   IconDots,
   IconExternal,
+  IconFolder,
   IconHelp,
   IconMetronome,
   IconMoon,
@@ -28,13 +29,15 @@ export interface HeaderProps {
 }
 
 /**
- * Two fixed rows, never one crowded line:
+ * Two fixed rows, and nothing else above the stage: the project name and the
+ * project actions used to sit in a third row that squeezed the loop ring on a
+ * phone. They now live behind the folder button at the right of the transport.
  *  1) app bar   — brand lockup (HD2Lab | Lýra) + KO|EN + theme + ⋮
  *  2) transport — play · stop · BPM · Tap · signature · bars · metronome ·
- *                 count-in · Master meter
+ *                 count-in · folder (projects) · Master meter
  * The ⋮ button and KO|EN live in row 1, so no transport control can ever push
  * them off-screen (the 320px collapse in the review). On phones the transport
- * keeps play/stop/BPM/bars/signature and folds the rest into "More".
+ * keeps play/stop/BPM/bars/signature/folder and folds the rest into "More".
  */
 export function Header({ playing, master, lang, onHelp }: HeaderProps): JSX.Element {
   const state = useStudio();
@@ -314,7 +317,8 @@ export function Header({ playing, master, lang, onHelp }: HeaderProps): JSX.Elem
               title={t(lang, 'transport.bars')}
               aria-label={`${t(lang, 'transport.bars')} ${project.bars}`}
             >
-              <span className="tabular">{project.bars}</span> {t(lang, 'transport.bars')}
+              <span className="tabular">{project.bars}</span>
+              <span className="chip-unit"> {t(lang, 'transport.bars')}</span>
             </button>
             <button
               type="button"
@@ -329,6 +333,20 @@ export function Header({ playing, master, lang, onHelp }: HeaderProps): JSX.Elem
         </div>
 
         <div className="transport-right">
+          <button
+            type="button"
+            className={`project-open ${state.drawer === 'project' ? 'open' : ''}`}
+            onClick={() => studio.openDrawer('project')}
+            aria-label={t(lang, 'project.title')}
+            aria-expanded={state.drawer === 'project'}
+            title={`${t(lang, 'project.title')} — ${project.name || t(lang, 'project.namePlaceholder')}`}
+          >
+            <IconFolder size={17} />
+            <span className="project-open-name">
+              {project.name || t(lang, 'project.namePlaceholder')}
+            </span>
+          </button>
+
           <div className="d-only master-slot">{masterMeter}</div>
 
           <div className="more-wrap m-only" ref={moreRef}>

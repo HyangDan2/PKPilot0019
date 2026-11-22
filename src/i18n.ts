@@ -187,6 +187,11 @@ const ko: Dict = {
   'export.fileName': '파일 이름',
 
   'project.title': '프로젝트',
+  'project.drawerHint': '이름·샘플·파일을 한곳에서 관리합니다',
+  'project.file': '파일',
+  'project.fileHint': '새 프로젝트 · .lps.json 저장과 불러오기',
+  'project.tracks': '트랙 수',
+  'project.tracksHint': '4~6개까지 조절할 수 있습니다',
   'project.name': '이름',
   'project.new': '새 프로젝트',
   'project.newHint': '빈 프로젝트를 엽니다. 저장하지 않은 녹음은 사라집니다',
@@ -432,6 +437,11 @@ const en: Dict = {
   'export.fileName': 'File name',
 
   'project.title': 'Project',
+  'project.drawerHint': 'Name, samples and files in one place',
+  'project.file': 'File',
+  'project.fileHint': 'New project · save and open .lps.json',
+  'project.tracks': 'Tracks',
+  'project.tracksHint': 'Keep between 4 and 6',
   'project.name': 'Name',
   'project.new': 'New project',
   'project.newHint': 'Opens an empty project. Unsaved recordings will be lost',
