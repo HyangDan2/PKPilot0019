@@ -1,4 +1,4 @@
-# Lýra — Multi-Track Loop Station
+# Lýra — HD2Lab Multi-Track Loop Station
 
 네 개의 트랙, 하나의 루프. **Lýra**는 설치 없이 브라우저에서 바로 연주하고, 겹쳐 녹음하고,
 마스터 믹스와 트랙 스템까지 내보내는 멀티트랙 루프스테이션입니다.
@@ -8,6 +8,15 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 
 - 라이브: <https://hyangdan2.github.io/PKPilot0019/>
 - 100% 순수 브라우저 (Vite + React + TypeScript + Web Audio API)
+
+## 화면 구성
+
+- **1단 앱 바** — `HD2Lab | Lýra` 락업(모바일에서도 유지), `KO|EN`, 테마, `⋮` 메뉴. 320px에서도 `⋮`가 화면 밖으로 나가지 않습니다.
+- **2단 트랜스포트 바** — 재생·정지, `BPM`(±·Tap), 박자, 마디, 메트로놈, 카운트인, Master 미터.
+  모바일에서는 재생·정지·BPM·마디·박자를 남기고 나머지를 **더보기**로 접습니다.
+- **프로젝트 바** — 프로젝트 이름, 샘플 프로젝트, **새 프로젝트 · 저장 · 불러오기**, 트랙 수. 예전에는 내보내기 모달 2단 안에 묻혀 있던 기능입니다.
+- **스테이지** — 1024px 이상은 채널 스트립(6트랙은 가로 스크롤), 768~1023px 태블릿은 2열 스트립, 767px 이하는 단일 링 모바일 덱.
+- **시트** — 가상악기·트랙 FX·I/O는 도구 시트, 내보내기·도움말은 중앙 다이얼로그. 모바일에서는 모두 하단 시트이며 닫기는 `✕` 하나입니다.
 
 ## 기능
 
@@ -45,8 +54,9 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 - `.lps.json` 프로젝트 저장/불러오기 + IndexedDB 자동 복구
 
 ### 내장 샘플 프로젝트 3종
-외부 파일 없이 결정론적 DSP로 생성한 3개의 멀티트랙 루프 — 클릭 한 번으로 로드 후
-`Play All`, Mute/Solo, 트랙 FX, 오버더빙, WAV/MP3 스템 내보내기까지 바로 체험할 수 있습니다.
+외부 파일 없이 결정론적 DSP로 생성한 3개의 멀티트랙 루프입니다. 빈 프로젝트에서는 스테이지가
+샘플 3종을 바로 보여 주고, 작업 중에도 프로젝트 바의 **샘플 프로젝트** 버튼에서 언제든 다시 고를 수 있습니다.
+불러온 뒤 `▶` 재생, Mute/Solo, 트랙 FX, 오버더빙, WAV/MP3 스템 내보내기까지 바로 체험할 수 있습니다.
 
 | 샘플 | 템포 | 구성 |
 | --- | --- | --- |
@@ -59,7 +69,7 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # Vitest 55개
+npm test           # Vitest 62개
 npx tsc --noEmit
 npm run build
 ```
@@ -70,18 +80,18 @@ npm run build
 ```
 src/
   audio/    clock · dsp · wav · mp3 · recorder · synth · drums · engine · render · project · sampleProjects
-  components/  Header · StageHeader · ChannelStrip · LoopRing · MobileDeck · Dock · drawers · modals
+  components/  Header · ProjectBar · SamplePrompt · ChannelStrip · MobileDeck · Dock · Sheet · sheets
   store/    studio state + IndexedDB autosave
   hooks/    media query · QWERTY performance keys
-tests/      clock · dsp · wav · mp3 · project · i18n · samples
+tests/      clock · dsp · wav · mp3 · project · i18n · samples · brand
 ```
 
 ## 브라우저 · 하드웨어 제약 (사실 그대로)
 
-- **출력 장치 선택(`AudioContext.setSinkId`)**: Chromium 계열만 지원. Firefox/Safari에서는 OS 기본 출력을 쓰며 I/O 모달에 안내 배지가 표시됩니다.
+- **출력 장치 선택(`AudioContext.setSinkId`)**: Chromium 계열만 지원. Firefox/Safari에서는 OS 기본 출력을 쓰며 I/O 시트에 안내 배지가 표시됩니다.
 - **Web MIDI**: Chromium 계열에서 지원. 미지원 브라우저에서는 건반·패드로 연주할 수 있습니다.
 - **WebM/Opus 내보내기**: `MediaRecorder`가 지원하는 브라우저에서만 활성화되며, 이 경로는 실시간 캡처입니다(다른 포맷은 오프라인 렌더링).
-- 마이크 권한은 사용자가 I/O 모달에서 직접 허용해야 하며, 거부되면 악기·파일 입력으로 계속 사용할 수 있습니다.
+- 마이크 권한은 사용자가 I/O 시트에서 직접 허용해야 하며, 거부되면 악기·파일 입력으로 계속 사용할 수 있습니다.
 - 오디오는 첫 사용자 제스처(재생/녹음) 후에 시작됩니다(브라우저 자동재생 정책).
 
 ## 라이선스

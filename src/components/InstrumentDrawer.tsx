@@ -150,7 +150,7 @@ function Keybed({
   );
 }
 
-export function InstrumentDrawer({ onClose }: { onClose: () => void }): JSX.Element {
+export function InstrumentDrawer(): JSX.Element {
   const state = useStudio();
   const lang = state.lang;
   const instrument = state.instrument;
@@ -238,7 +238,9 @@ export function InstrumentDrawer({ onClose }: { onClose: () => void }): JSX.Elem
 
           <div className="control-block">
             <span className="block-label">{t(lang, 'inst.keyboard')}</span>
-            <Keybed octave={instrument.octave} velocity={velocity} />
+            <div className="keybed-scroll">
+              <Keybed octave={instrument.octave} velocity={velocity} />
+            </div>
             <p className="hint">{t(lang, 'inst.qwertyHint')}</p>
           </div>
         </>
@@ -291,9 +293,6 @@ export function InstrumentDrawer({ onClose }: { onClose: () => void }): JSX.Elem
         </label>
       </div>
 
-      <button type="button" className="primary-btn wide" onClick={onClose}>
-        {t(lang, 'common.close')}
-      </button>
     </>
   );
 }

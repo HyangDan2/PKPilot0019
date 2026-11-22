@@ -27,7 +27,7 @@ function Switch({
   );
 }
 
-export function IoModal({ inputLevel }: { inputLevel: number }): JSX.Element {
+export function IoSheet({ inputLevel }: { inputLevel: number }): JSX.Element {
   const state = useStudio();
   const { lang, io, project } = state;
   const inputs = io.devices.filter((device) => device.kind === 'audioinput');
@@ -138,7 +138,7 @@ export function IoModal({ inputLevel }: { inputLevel: number }): JSX.Element {
 
       <section className="io-block">
         <h3>{t(lang, 'io.sampleRate')}</h3>
-        <div className="inline-row">
+        <div className="rate-grid">
           <select
             className="select"
             value={io.sampleRateChoice}

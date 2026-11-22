@@ -28,13 +28,21 @@ export function ChannelStrip({ track, runtime, selected, lang, level }: ChannelS
   useEffect(() => {
     const element = stageRef.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
+    // The ring follows whichever of width or height is tighter, so a strip that
+    // is squeezed (6 tracks at 1024px, a short laptop window) can never push the
+    // ring over the state line and the transport row.
     const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0;
-      if (width > 0) setRingSize(Math.max(148, Math.min(266, Math.round(width - 30))));
+      const rect = entries[0]?.contentRect;
+      if (!rect) return;
+      const byWidth = rect.width - 16;
+      const byHeight = rect.height - 40;
+      const next = Math.round(Math.min(byWidth, byHeight));
+      if (next > 0) setRingSize(Math.max(84, Math.min(262, next)));
     });
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+
   const tint = TRACK_TINTS[(track.id - 1) % TRACK_TINTS.length];
   const peaks = peaksFor(track.buffer, 64);
   const recording = runtime.status === 'REC' || runtime.status === 'OVERDUB' || runtime.status === 'COUNT-IN';
@@ -60,10 +68,6 @@ export function ChannelStrip({ track, runtime, selected, lang, level }: ChannelS
       onDrop={onDrop}
       data-track={track.id}
     >
-      <div className="strip-meter" aria-hidden>
-        <div className="strip-meter-fill" style={{ height: `${Math.min(100, level * 118)}%` }} />
-      </div>
-
       <div className="strip-head">
         <span className="strip-index">T{track.id}</span>
         <input
@@ -179,6 +183,7 @@ export function ChannelStrip({ track, runtime, selected, lang, level }: ChannelS
             className={`ms-btn ${track.mute ? 'on mute' : ''}`}
             onClick={() => studio.setTrackMute(track.id, !track.mute)}
             title={t(lang, 'track.mute')}
+            aria-pressed={track.mute}
           >
             M
           </button>
@@ -187,6 +192,7 @@ export function ChannelStrip({ track, runtime, selected, lang, level }: ChannelS
             className={`ms-btn ${track.solo ? 'on solo' : ''}`}
             onClick={() => studio.setTrackSolo(track.id, !track.solo)}
             title={t(lang, 'track.solo')}
+            aria-pressed={track.solo}
           >
             S
           </button>
@@ -194,33 +200,38 @@ export function ChannelStrip({ track, runtime, selected, lang, level }: ChannelS
       </div>
 
       <div className="strip-level">
-        <div className="fader-wrap">
-          <span className="fader-label">{t(lang, 'track.volume')}</span>
-          <input
-            type="range"
-            className="fader"
-            min={0}
-            max={100}
-            value={Math.round(track.volume * 100)}
-            onChange={(event) => studio.setTrackVolume(track.id, Number(event.target.value) / 100)}
-            aria-label={`${track.name} ${t(lang, 'track.volume')}`}
-          />
-          <span className="tabular fader-value">{Math.round(track.volume * 100)}</span>
+        <div className="strip-meter" aria-hidden>
+          <div className="strip-meter-fill" style={{ width: `${Math.min(100, level * 118)}%` }} />
         </div>
-        <div className="pan-wrap">
-          <span className="fader-label">{t(lang, 'track.pan')}</span>
-          <input
-            type="range"
-            className="pan"
-            min={-100}
-            max={100}
-            value={Math.round(track.pan * 100)}
-            onChange={(event) => studio.setTrackPan(track.id, Number(event.target.value) / 100)}
-            aria-label={`${track.name} ${t(lang, 'track.pan')}`}
-          />
-          <span className="tabular fader-value">
-            {Math.abs(track.pan) < 0.02 ? 'C' : track.pan < 0 ? `L${Math.round(-track.pan * 100)}` : `R${Math.round(track.pan * 100)}`}
-          </span>
+        <div className="strip-faders">
+          <label className="fader-wrap">
+            <span className="fader-label">{t(lang, 'track.volume')}</span>
+            <input
+              type="range"
+              className="fader"
+              min={0}
+              max={100}
+              value={Math.round(track.volume * 100)}
+              onChange={(event) => studio.setTrackVolume(track.id, Number(event.target.value) / 100)}
+              aria-label={`${track.name} ${t(lang, 'track.volume')}`}
+            />
+            <span className="tabular fader-value">{Math.round(track.volume * 100)}</span>
+          </label>
+          <label className="fader-wrap">
+            <span className="fader-label">{t(lang, 'track.pan')}</span>
+            <input
+              type="range"
+              className="pan"
+              min={-100}
+              max={100}
+              value={Math.round(track.pan * 100)}
+              onChange={(event) => studio.setTrackPan(track.id, Number(event.target.value) / 100)}
+              aria-label={`${track.name} ${t(lang, 'track.pan')}`}
+            />
+            <span className="tabular fader-value">
+              {Math.abs(track.pan) < 0.02 ? 'C' : track.pan < 0 ? `L${Math.round(-track.pan * 100)}` : `R${Math.round(track.pan * 100)}`}
+            </span>
+          </label>
         </div>
       </div>
 

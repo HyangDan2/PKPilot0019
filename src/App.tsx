@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import type { JSX } from 'react';
 import { engine, type TrackRuntime } from './audio/engine';
@@ -7,15 +7,16 @@ import { t } from './i18n';
 import { useMediaQuery } from './hooks/useMedia';
 import { useInstrumentKeyboard } from './hooks/useInstrumentKeyboard';
 import { Header } from './components/Header';
-import { StageHeader } from './components/StageHeader';
+import { ProjectBar } from './components/ProjectBar';
+import { SamplePrompt } from './components/SamplePrompt';
 import { ChannelStrip } from './components/ChannelStrip';
 import { MobileDeck } from './components/MobileDeck';
 import { Dock } from './components/Dock';
-import { DrawerShell, Modal } from './components/Overlay';
+import { Sheet } from './components/Overlay';
 import { InstrumentDrawer } from './components/InstrumentDrawer';
 import { FxDrawer } from './components/FxDrawer';
-import { IoModal } from './components/IoModal';
-import { ExportModal } from './components/ExportModal';
+import { IoSheet } from './components/IoSheet';
+import { ExportSheet } from './components/ExportSheet';
 import { HelpModal } from './components/HelpModal';
 import { Toast } from './components/Toast';
 
@@ -46,8 +47,12 @@ const EMPTY_FRAME: Frame = {
 export default function App(): JSX.Element {
   const state = useStudio();
   const lang = state.lang;
-  const desktop = useMediaQuery('(min-width: 1024px)');
+  // 768px and up gets the channel-strip workspace (2 columns on a tablet),
+  // below that the single-ring mobile deck.
+  const desktop = useMediaQuery('(min-width: 768px)');
   const [frame, setFrame] = useState<Frame>(EMPTY_FRAME);
+  const stripsRef = useRef<HTMLElement | null>(null);
+  const [stripMore, setStripMore] = useState(false);
 
   useEffect(() => {
     void studio.boot();
@@ -77,6 +82,25 @@ export default function App(): JSX.Element {
 
   useInstrumentKeyboard(state.booted);
 
+  // Six tracks on a 1024px laptop scroll sideways; fade the right edge so the
+  // row reads as "more to the right" instead of "cut off".
+  useEffect(() => {
+    const element = stripsRef.current;
+    if (!element) return;
+    const check = (): void => {
+      const more = element.scrollWidth - element.clientWidth - element.scrollLeft > 4;
+      setStripMore(more && element.scrollWidth > element.clientWidth + 4);
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(element);
+    element.addEventListener('scroll', check);
+    return () => {
+      observer.disconnect();
+      element.removeEventListener('scroll', check);
+    };
+  }, [desktop, state.project.tracks.length]);
+
   useEffect(() => {
     const api = {
       engine,
@@ -101,14 +125,7 @@ export default function App(): JSX.Element {
       canUndo: false,
     };
 
-  const drawerTitle =
-    state.drawer === 'instrument'
-      ? t(lang, 'dock.instrumentTitle')
-      : state.drawer === 'fx'
-        ? t(lang, 'dock.fxTitle')
-        : state.drawer === 'io'
-          ? t(lang, 'dock.ioTitle')
-          : t(lang, 'dock.exportTitle');
+  const emptyProject = state.project.tracks.every((track) => !track.buffer);
 
   const onStageDrop = (event: DragEvent): void => {
     event.preventDefault();
@@ -127,10 +144,17 @@ export default function App(): JSX.Element {
           <div className="error-banner">{t(lang, 'toast.noAudio')}</div>
         )}
 
+        <ProjectBar />
+
         {desktop ? (
           <>
-            <StageHeader />
-            <section className="strips" aria-label="tracks">
+            {emptyProject && <SamplePrompt />}
+            <section
+              ref={stripsRef}
+              className={`strips ${stripMore ? 'has-more' : ''}`}
+              aria-label={t(lang, 'track.label')}
+              style={{ ['--n' as string]: state.project.tracks.length }}
+            >
               {state.project.tracks.map((track) => (
                 <ChannelStrip
                   key={track.id}
@@ -154,25 +178,29 @@ export default function App(): JSX.Element {
       </main>
 
       {state.drawer === 'instrument' && (
-        <DrawerShell title={drawerTitle} subtitle={t(lang, 'inst.touchHint')} onClose={() => studio.closeDrawer()}>
-          <InstrumentDrawer onClose={() => studio.closeDrawer()} />
-        </DrawerShell>
+        <Sheet
+          title={t(lang, 'dock.instrumentTitle')}
+          subtitle={t(lang, 'inst.touchHint')}
+          onClose={() => studio.closeDrawer()}
+        >
+          <InstrumentDrawer />
+        </Sheet>
       )}
       {state.drawer === 'fx' && (
-        <DrawerShell title={drawerTitle} onClose={() => studio.closeDrawer()} side={desktop ? 'right' : 'bottom'}>
+        <Sheet title={t(lang, 'dock.fxTitle')} onClose={() => studio.closeDrawer()}>
           <FxDrawer />
-        </DrawerShell>
+        </Sheet>
       )}
       {state.drawer === 'io' && (
-        <Modal title={drawerTitle} subtitle={t(lang, 'io.inputHint')} onClose={() => studio.closeDrawer()}>
-          <IoModal inputLevel={frame.input} />
-        </Modal>
+        <Sheet
+          title={t(lang, 'dock.ioTitle')}
+          subtitle={t(lang, 'io.inputHint')}
+          onClose={() => studio.closeDrawer()}
+        >
+          <IoSheet inputLevel={frame.input} />
+        </Sheet>
       )}
-      {state.drawer === 'export' && (
-        <Modal title={drawerTitle} onClose={() => studio.closeDrawer()} wide>
-          <ExportModal />
-        </Modal>
-      )}
+      {state.drawer === 'export' && <ExportSheet onClose={() => studio.closeDrawer()} />}
       {state.helpOpen && <HelpModal onClose={() => studio.setHelp(false)} />}
 
       <Toast />

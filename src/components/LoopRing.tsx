@@ -162,9 +162,9 @@ export function LoopRing({
         {live && showScope ? (
           <LiveScope trackId={trackId} size={Math.round(size * 0.62)} />
         ) : (
-          <span className="ring-percent tabular" style={{ borderColor: color }}>
-            {status === 'EMPTY' ? '—' : `${Math.round(clamped * 100)}%`}
-          </span>
+          status !== 'EMPTY' && (
+            <span className="ring-percent tabular">{Math.round(clamped * 100)}%</span>
+          )
         )}
       </div>
     </div>
