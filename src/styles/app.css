@@ -970,6 +970,13 @@ kbd {
   .sample-quick-head h2 { font-size: var(--fs-sm); }
   .sample-chip { padding: 4px 8px; }
 
+  /* the project drawer is the one sheet whose content must fit a phone
+     without scrolling: name, three samples, file row and track stepper */
+  .project-drawer { gap: 10px; }
+  .pd-block { padding: 10px; }
+  .pd-samples { gap: 5px; }
+  .pd-sample { padding: 8px 10px; }
+
   .mobile-deck { gap: 6px; }
   .chip-scroll { padding-bottom: 2px; }
   .track-chip { height: 40px; }
@@ -1007,6 +1014,17 @@ kbd {
   .keybed-scroll { overflow-x: auto; }
   .keybed-scroll .keybed { min-width: 460px; height: 120px; }
   .io-block { padding: 10px 12px; }
+}
+
+@media (max-width: 767px) and (max-height: 780px) {
+  .pd-sample-blurb { display: none; }
+}
+
+@media (max-width: 767px) and (max-height: 660px) {
+  .project-drawer { gap: 8px; }
+  .pd-block { padding: 9px; }
+  .pd-sample { padding: 7px 9px; }
+  .pd-block-hint { display: none; }
 }
 
 @media (max-width: 767px) and (max-height: 720px) {
