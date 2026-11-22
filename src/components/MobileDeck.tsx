@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { MIN_TRACKS, TRACK_TINTS, type TrackStatus } from '../audio/types';
 import type { TrackRuntime } from '../audio/engine';
@@ -30,17 +31,60 @@ export function MobileDeck({
   const { lang, project } = state;
   const width = useViewportWidth();
   const track = project.tracks.find((entry) => entry.id === state.selectedTrack) ?? project.tracks[0];
-  if (!track) return <div className="mobile-deck" />;
-  const info = runtime.find((entry) => entry.id === track.id);
+  const deckRef = useRef<HTMLDivElement | null>(null);
+  const [stageSpace, setStageSpace] = useState(0);
+  const info = track ? runtime.find((entry) => entry.id === track.id) : undefined;
   const status = info?.status ?? 'EMPTY';
+  const emptyProject = project.tracks.every((entry) => !entry.buffer);
+  const stageVisible = !(emptyProject && status === 'EMPTY');
+
+  // Whatever a phone browser leaves after its own bars (an iPhone in Safari is
+  // ~660px, an SE ~635px) has to hold the chips, the ring with its status row,
+  // the pads, the mixer and the utility row without scrolling. The ring is the
+  // only part that gives, so it is sized from the space the deck really has —
+  // measured as the deck minus its fixed rows, never from the ring's own box,
+  // so the measurement can never feed back into itself.
+  useEffect(() => {
+    const deck = deckRef.current;
+    if (!deck) return;
+    const measure = (): void => {
+      const stage = deck.querySelector('.mobile-stage');
+      if (!(stage instanceof HTMLElement)) {
+        setStageSpace(0);
+        return;
+      }
+      const deckStyle = getComputedStyle(deck);
+      const gap = parseFloat(deckStyle.rowGap || deckStyle.gap || '0') || 0;
+      const rows = [...deck.children].filter((child) => child !== stage) as HTMLElement[];
+      const used = rows.reduce((sum, row) => sum + row.getBoundingClientRect().height, 0);
+      const stageStyle = getComputedStyle(stage);
+      const padding = (parseFloat(stageStyle.paddingTop) || 0) + (parseFloat(stageStyle.paddingBottom) || 0);
+      setStageSpace(Math.max(0, Math.round(deck.clientHeight - used - gap * rows.length - padding)));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(deck);
+    return () => observer.disconnect();
+  }, [width, lang, stageVisible, project.tracks.length]);
+
+  if (!track) return <div className="mobile-deck" ref={deckRef} />;
   const recording = status === 'REC' || status === 'OVERDUB' || status === 'COUNT-IN';
   const tint = TRACK_TINTS[(track.id - 1) % TRACK_TINTS.length];
-  const ringSize = Math.max(168, Math.min(272, Math.round(width * 0.56)));
+  const ringCap = Math.max(168, Math.min(272, Math.round(width * 0.56)));
+  const statusRow = 27; // track name + state badge, and the 4px gap above it
+  const beatRow = 22; // BPM caption and its gap, dropped when the box is short
+  const showBeat = stageSpace === 0 || stageSpace >= ringCap + statusRow + beatRow;
+  const ringFloor = 88;
+  const ringFit = stageSpace > 0 ? stageSpace - statusRow - (showBeat ? beatRow : 0) : ringCap;
+  const ringSize = Math.min(ringCap, Math.max(ringFloor, ringFit));
+  // A phone with no room at all (320x568) keeps a usable ring and lets the deck
+  // scroll instead of letting the ring ride up over the track chips.
+  const stageMinHeight = ringFit < ringFloor ? ringFloor + statusRow : undefined;
   const peaks = peaksFor(track.buffer, 64);
-  const emptyProject = project.tracks.every((entry) => !entry.buffer);
 
   return (
-    <div className="mobile-deck">
+    <div className="mobile-deck" ref={deckRef}>
       <div className="chip-scroll">
         {project.tracks.map((entry) => {
           const entryInfo = runtime.find((item) => item.id === entry.id);
@@ -82,7 +126,7 @@ export function MobileDeck({
       {emptyProject && status === 'EMPTY' ? (
         <SamplePrompt inDeck />
       ) : (
-        <div className="mobile-stage">
+        <div className="mobile-stage" style={stageMinHeight ? { minHeight: stageMinHeight } : undefined}>
           <LoopRing
             size={ringSize}
             progress={info?.progress ?? 0}
@@ -99,9 +143,11 @@ export function MobileDeck({
               {t(lang, { EMPTY: 'track.empty', ARMED: 'track.armed', 'COUNT-IN': 'track.countIn', REC: 'track.rec', PLAY: 'track.play', OVERDUB: 'track.overdub', STOPPED: 'track.stopped' }[status])}
             </span>
           </div>
-          <div className="mobile-beat tabular">
-            {playing ? `${project.bpm} BPM · ${project.bars} ${t(lang, 'common.bars')}` : t(lang, 'transport.ready')}
-          </div>
+          {showBeat && (
+            <div className="mobile-beat tabular">
+              {playing ? `${project.bpm} BPM · ${project.bars} ${t(lang, 'common.bars')}` : t(lang, 'transport.ready')}
+            </div>
+          )}
         </div>
       )}
 
@@ -109,39 +155,43 @@ export function MobileDeck({
         <button
           type="button"
           className={`mobile-pad rec ${status === 'REC' ? 'live' : ''}`}
+          aria-label={`${t(lang, 'pad.rec')} — ${track.name}`}
           onClick={() => void (recording ? studio.stopRecording(track.id) : studio.recordTrack(track.id))}
         >
           <span className="pad-main">REC</span>
-          <span className="pad-sub">{t(lang, 'track.rec')}</span>
+          {lang === 'ko' && <span className="pad-sub">{t(lang, 'pad.rec')}</span>}
         </button>
         <button
           type="button"
           className={`mobile-pad overdub ${status === 'OVERDUB' ? 'live' : ''}`}
+          aria-label={`${t(lang, 'pad.overdub')} — ${track.name}`}
           onClick={() => void (recording ? studio.stopRecording(track.id) : studio.recordTrack(track.id))}
           disabled={!track.buffer}
         >
           <span className="pad-main">OVERDUB</span>
-          <span className="pad-sub">{t(lang, 'track.overdub')}</span>
+          {lang === 'ko' && <span className="pad-sub">{t(lang, 'pad.overdub')}</span>}
         </button>
         <button
           type="button"
           className={`mobile-pad play ${status === 'PLAY' ? 'live' : ''}`}
+          aria-label={`${t(lang, 'pad.play')} — ${track.name}`}
           onClick={() => void studio.toggleTrackPlay(track.id)}
           disabled={!track.buffer}
         >
           <span className="pad-main">PLAY</span>
-          <span className="pad-sub">{t(lang, 'track.play')}</span>
+          {lang === 'ko' && <span className="pad-sub">{t(lang, 'pad.play')}</span>}
         </button>
         <button
           type="button"
           className="mobile-pad stop"
+          aria-label={`${t(lang, 'pad.stop')} — ${track.name}`}
           onClick={() => {
             if (recording) studio.stopRecording(track.id);
             else studio.stopTrack(track.id);
           }}
         >
           <span className="pad-main">STOP</span>
-          <span className="pad-sub">{t(lang, 'track.stopped')}</span>
+          {lang === 'ko' && <span className="pad-sub">{t(lang, 'pad.stop')}</span>}
         </button>
       </div>
 

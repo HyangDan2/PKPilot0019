@@ -50,6 +50,13 @@ const ko: Dict = {
   'track.playButton': 'PLAY',
   'track.overdubButton': 'OVERDUB',
   'track.stopButton': 'STOP',
+  // Mobile transport captions: the pads keep the English pro-audio abbreviation
+  // and the Korean build prints the Korean meaning underneath, so the same
+  // English word never appears twice inside one button.
+  'pad.rec': '녹음',
+  'pad.overdub': '오버더빙',
+  'pad.play': '재생',
+  'pad.stop': '정지',
   'track.undoButton': 'Undo',
   'track.clearButton': 'CLEAR',
   'track.mute': 'Mute',
@@ -291,6 +298,10 @@ const en: Dict = {
   'track.playButton': 'PLAY',
   'track.overdubButton': 'OVERDUB',
   'track.stopButton': 'STOP',
+  'pad.rec': 'Record',
+  'pad.overdub': 'Overdub',
+  'pad.play': 'Play',
+  'pad.stop': 'Stop',
   'track.undoButton': 'Undo',
   'track.clearButton': 'CLEAR',
   'track.mute': 'Mute',

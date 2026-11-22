@@ -163,7 +163,11 @@ export function LoopRing({
           <LiveScope trackId={trackId} size={Math.round(size * 0.62)} />
         ) : (
           status !== 'EMPTY' && (
-            <span className="ring-percent tabular">{Math.round(clamped * 100)}%</span>
+            // Caption row under the waveform: the percentage used to sit dead
+            // centre and printed straight over the peaks.
+            <span className="ring-percent tabular">
+              {Math.round(clamped * 100)}%
+            </span>
           )
         )}
       </div>
