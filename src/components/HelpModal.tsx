@@ -1,13 +1,18 @@
 import type { JSX } from 'react';
 import { t } from '../i18n';
 import { useStudio } from '../store/studio';
-import { Modal } from './Overlay';
+import { Sheet } from './Overlay';
 
 export function HelpModal({ onClose }: { onClose: () => void }): JSX.Element {
   const state = useStudio();
   const lang = state.lang;
   return (
-    <Modal title={t(lang, 'help.title')} subtitle={t(lang, 'app.subtitle')} onClose={onClose}>
+    <Sheet
+      title={t(lang, 'help.title')}
+      subtitle={t(lang, 'app.subtitle')}
+      variant="center"
+      onClose={onClose}
+    >
       <section className="io-block">
         <p className="help-text">{t(lang, 'help.intro')}</p>
         <p className="help-text">{t(lang, 'help.loop')}</p>
@@ -22,9 +27,6 @@ export function HelpModal({ onClose }: { onClose: () => void }): JSX.Element {
           <li><kbd>1 – 8</kbd><span>{t(lang, 'help.pads')}</span></li>
         </ul>
       </section>
-      <button type="button" className="primary-btn wide" onClick={onClose}>
-        {t(lang, 'help.close')}
-      </button>
-    </Modal>
+    </Sheet>
   );
 }

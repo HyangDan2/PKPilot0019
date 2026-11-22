@@ -83,6 +83,12 @@ export const IconSun = (props: IconProps): JSX.Element => (
   </Svg>
 );
 
+export const IconCountIn = (props: IconProps): JSX.Element => (
+  <Svg {...props}>
+    <path d="M4.5 6v12M9 9v6M13.5 7v10M18.5 10v4" />
+  </Svg>
+);
+
 export const IconDots = (props: IconProps): JSX.Element => (
   <Svg {...props}>
     <circle cx="12" cy="5.5" r="1.5" fill="currentColor" stroke="none" />
