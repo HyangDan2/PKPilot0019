@@ -23,7 +23,7 @@ export function HelpModal({ onClose }: { onClose: () => void }): JSX.Element {
         <ul className="key-list">
           <li><kbd>Space</kbd><span>{t(lang, 'help.space')}</span></li>
           <li><kbd>R</kbd><span>{t(lang, 'help.rec')}</span></li>
-          <li><kbd>A W S E D F G …</kbd><span>{t(lang, 'help.qwerty')}</span></li>
+          <li><kbd>A … K</kbd><span>{t(lang, 'help.qwerty')}</span></li>
           <li><kbd>1 – 8</kbd><span>{t(lang, 'help.pads')}</span></li>
         </ul>
       </section>
