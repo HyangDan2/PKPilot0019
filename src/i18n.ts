@@ -187,7 +187,7 @@ const ko: Dict = {
   'export.fileName': '파일 이름',
 
   'project.title': '프로젝트',
-  'project.drawerHint': '이름·샘플·파일을 한곳에서 관리합니다',
+  'project.drawerHint': '이름·파일·트랙을 한곳에서 관리합니다',
   'project.file': '파일',
   'project.fileHint': '새 프로젝트 · .lps.json 저장과 불러오기',
   'project.tracks': '트랙 수',
@@ -210,8 +210,9 @@ const ko: Dict = {
   'project.namePlaceholder': '루프 이름',
   'project.invalid': '프로젝트 파일을 읽을 수 없습니다',
 
-  'sample.cta': '샘플 3종으로 바로 시작하세요',
-  'sample.ctaHint': '한 번 누르면 트랙·BPM·박자가 준비됩니다',
+  'empty.title': '프로젝트를 열거나 트랙을 녹음해 주세요',
+  'empty.open': '프로젝트 열기',
+  'empty.hint': '샘플 프로젝트는 프로젝트 창 하단에서 고를 수 있습니다',
   'sample.load': '불러오기',
   'sample.tracks': '트랙',
 
@@ -437,7 +438,7 @@ const en: Dict = {
   'export.fileName': 'File name',
 
   'project.title': 'Project',
-  'project.drawerHint': 'Name, samples and files in one place',
+  'project.drawerHint': 'Name, files and tracks in one place',
   'project.file': 'File',
   'project.fileHint': 'New project · save and open .lps.json',
   'project.tracks': 'Tracks',
@@ -460,8 +461,9 @@ const en: Dict = {
   'project.namePlaceholder': 'Loop name',
   'project.invalid': 'That project file could not be read',
 
-  'sample.cta': 'Start with one of three samples',
-  'sample.ctaHint': 'One tap and the tracks, BPM and signature are ready',
+  'empty.title': 'Open a project or start recording',
+  'empty.open': 'Open project',
+  'empty.hint': 'Sample projects sit at the bottom of the project drawer',
   'sample.load': 'Load',
   'sample.tracks': 'tracks',
 

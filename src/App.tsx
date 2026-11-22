@@ -8,7 +8,7 @@ import { useMediaQuery } from './hooks/useMedia';
 import { useInstrumentKeyboard } from './hooks/useInstrumentKeyboard';
 import { Header } from './components/Header';
 import { ProjectDrawer } from './components/ProjectDrawer';
-import { SamplePrompt } from './components/SamplePrompt';
+import { EmptyStage } from './components/EmptyStage';
 import { ChannelStrip } from './components/ChannelStrip';
 import { MobileDeck } from './components/MobileDeck';
 import { Dock } from './components/Dock';
@@ -146,7 +146,7 @@ export default function App(): JSX.Element {
 
         {desktop ? (
           <>
-            {emptyProject && <SamplePrompt />}
+            {emptyProject && <EmptyStage />}
             <section
               ref={stripsRef}
               className={`strips ${stripMore ? 'has-more' : ''}`}

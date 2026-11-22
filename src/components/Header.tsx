@@ -5,7 +5,6 @@ import { tapTempo } from '../audio/clock';
 import { SIGNATURES } from '../audio/types';
 import { t } from '../i18n';
 import { studio, useStudio, type StudioState } from '../store/studio';
-import { BrandMark } from './BrandMark';
 import {
   IconCountIn,
   IconDots,
@@ -107,7 +106,7 @@ export function Header({ playing, master, lang, onHelp }: HeaderProps): JSX.Elem
       <header className="app-header">
         <div className="brand" aria-label={t(lang, 'header.brand')}>
           <span className="brand-mark" aria-hidden>
-            <BrandMark size={21} />
+            <span className="mark" />
           </span>
           <span className="brand-name">HD2Lab</span>
           <span className="brand-div" aria-hidden />
