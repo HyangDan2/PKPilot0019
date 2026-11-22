@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { JSX } from 'react';
 import { loopSeconds } from '../audio/clock';
 import { SAMPLE_PROJECTS } from '../audio/sampleProjects';
@@ -8,14 +8,17 @@ import { studio, useStudio } from '../store/studio';
 import { IconFolder, IconMinus, IconPlus, IconSave, IconSpark } from './Icons';
 
 /**
- * Everything that is about the project itself — name, sample projects, new /
- * save / open, track count — in the one drawer the folder button opens. The
- * drawer replaces the third header row, so the stage gets that height back.
+ * Everything that is about the project itself, in the one drawer the folder
+ * button opens. The order is the order a session is actually made in: name it,
+ * then the file ({+ new · save · open}), then how many tracks, and only then the
+ * sample projects — a shortcut you may never need, so they stay folded at the
+ * bottom until the header is opened.
  */
 export function ProjectDrawer(): JSX.Element {
   const state = useStudio();
   const { lang, project } = state;
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const [samplesOpen, setSamplesOpen] = useState(false);
   const seconds = loopSeconds(project.bpm, project.beatsPerBar, project.beatUnit, project.bars);
 
   const loadSample = (key: string): void => {
@@ -52,33 +55,6 @@ export function ProjectDrawer(): JSX.Element {
           </span>
         </p>
       </div>
-
-      <section className="pd-block">
-        <header className="pd-block-head">
-          <IconSpark size={14} />
-          <h3>{t(lang, 'project.samples')}</h3>
-          <span className="pd-block-hint">{t(lang, 'project.samplesHint')}</span>
-        </header>
-        <div className="pd-samples">
-          {SAMPLE_PROJECTS.map((sample) => (
-            <button
-              key={sample.key}
-              type="button"
-              className={`pd-sample ${state.sampleKey === sample.key ? 'on' : ''}`}
-              onClick={() => loadSample(sample.key)}
-            >
-              <span className="pd-sample-name">{lang === 'ko' ? sample.nameKo : sample.name}</span>
-              <span className="pd-sample-meta tabular">
-                {sample.bpm} BPM · {sample.bars} {t(lang, 'common.bars')} · {sample.trackCount}{' '}
-                {t(lang, 'sample.tracks')}
-              </span>
-              <span className="pd-sample-blurb">
-                {lang === 'ko' ? sample.blurbKo : sample.blurbEn}
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
 
       <section className="pd-block">
         <header className="pd-block-head">
@@ -159,6 +135,44 @@ export function ProjectDrawer(): JSX.Element {
             <IconPlus size={15} />
           </button>
         </div>
+      </section>
+
+      <section className="pd-block pd-acc">
+        <button
+          type="button"
+          className="pd-acc-head"
+          onClick={() => setSamplesOpen((value) => !value)}
+          aria-expanded={samplesOpen}
+          aria-controls="pd-sample-list"
+        >
+          <span className={`pd-chev ${samplesOpen ? 'open' : ''}`} aria-hidden>
+            ▸
+          </span>
+          <IconSpark size={14} />
+          <span className="pd-acc-title">{t(lang, 'project.samples')}</span>
+          <span className="pd-block-hint">{t(lang, 'project.samplesHint')}</span>
+        </button>
+        {samplesOpen && (
+          <div className="pd-samples" id="pd-sample-list">
+            {SAMPLE_PROJECTS.map((sample) => (
+              <button
+                key={sample.key}
+                type="button"
+                className={`pd-sample ${state.sampleKey === sample.key ? 'on' : ''}`}
+                onClick={() => loadSample(sample.key)}
+              >
+                <span className="pd-sample-name">{lang === 'ko' ? sample.nameKo : sample.name}</span>
+                <span className="pd-sample-meta tabular">
+                  {sample.bpm} BPM · {sample.bars} {t(lang, 'common.bars')} · {sample.trackCount}{' '}
+                  {t(lang, 'sample.tracks')}
+                </span>
+                <span className="pd-sample-blurb">
+                  {lang === 'ko' ? sample.blurbKo : sample.blurbEn}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -1,5 +1,5 @@
 {
-  "name": "Lýra — HD2Lab Multi-Track Loop Station",
+  "name": "Lýra — HD2Lab 멀티트랙 루프 스테이션",
   "short_name": "Lýra",
   "description": "Lýra — 브라우저에서 바로 연주하고 겹쳐 녹음하고 내보내는 멀티트랙 루프스테이션입니다. 설치도, 업로드도 없습니다.",
   "lang": "ko",
@@ -9,7 +9,17 @@
   "background_color": "#fafafd",
   "theme_color": "#8b6ce8",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
   ]
 }

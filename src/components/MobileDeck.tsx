@@ -6,7 +6,7 @@ import { peaksFor } from '../lib/peaks';
 import { t } from '../i18n';
 import { studio, useStudio } from '../store/studio';
 import { LoopRing } from './LoopRing';
-import { SamplePrompt } from './SamplePrompt';
+import { EmptyStage } from './EmptyStage';
 import { IconFile, IconMinus } from './Icons';
 import { useViewportWidth } from '../hooks/useMedia';
 
@@ -125,7 +125,7 @@ export function MobileDeck({
 
       {emptyProject && status === 'EMPTY' ? (
         <div className="mobile-empty">
-          <SamplePrompt inDeck />
+          <EmptyStage inDeck />
         </div>
       ) : (
         <div className="mobile-stage" style={stageMinHeight ? { minHeight: stageMinHeight } : undefined}>

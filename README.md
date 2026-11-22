@@ -1,4 +1,4 @@
-# Lýra — HD2Lab Multi-Track Loop Station
+# Lýra — HD2Lab 멀티트랙 루프 스테이션
 
 네 개의 트랙, 하나의 루프. **Lýra**는 설치 없이 브라우저에서 바로 연주하고, 겹쳐 녹음하고,
 마스터 믹스와 트랙 스템까지 내보내는 멀티트랙 루프스테이션입니다.
@@ -16,9 +16,11 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
   모바일에서는 재생·정지·BPM·마디·박자·`📁`를 남기고 나머지를 **더보기**로 접습니다.
   상단은 이 두 줄이 전부이며, 그 아래 스테이지가 화면 높이를 그대로 씁니다.
 - **프로젝트 드로워** — 트랜스포트 우측 `📁`(PC에서는 현재 프로젝트 이름 표시)를 누르면 열립니다.
-  프로젝트 이름 편집, **샘플 프로젝트 3종 원클릭 로드**, **새 프로젝트 · 저장(.lps.json) · 불러오기**, 트랙 수(4~6)를 한곳에서 다룹니다.
+  **이름 → 파일(새 프로젝트 · 저장(.lps.json) · 불러오기) → 트랙 수(4~6) → 샘플 프로젝트** 순서로 놓이고,
+  샘플 3종은 맨 아래 접힌 아코디언(`▸`)이라 필요할 때만 펼쳐 원클릭으로 불러옵니다.
 - **스테이지** — 1024px 이상은 채널 스트립(6트랙은 가로 스크롤), 768~1023px 태블릿은 2열 스트립, 767px 이하는 단일 링 모바일 덱.
-  트랙이 모두 비어 있으면 스테이지 빈 자리에 **샘플 3종 칩**이 한 줄로 놓이고, 샘플을 불러오거나 녹음해 트랙이 차면 사라져 루프 링이 최대 크기로 넓어집니다.
+  트랙이 모두 비어 있으면 스테이지에 **"프로젝트를 열거나 트랙을 녹음해 주세요"** 안내와 **`📁 프로젝트 열기`** 버튼만 놓입니다.
+  버튼은 프로젝트 드로워를 열고, 샘플 카드는 스테이지가 아니라 그 안의 접힌 아코디언에 있습니다. 트랙이 차면 안내는 사라져 루프 링이 최대 크기로 넓어집니다.
 - **시트** — 가상악기·트랙 FX·I/O는 도구 시트, 내보내기·도움말은 중앙 다이얼로그. 모바일에서는 모두 하단 시트이며 닫기는 `✕` 하나입니다.
 
 ## 기능
@@ -57,8 +59,8 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 - `.lps.json` 프로젝트 저장/불러오기 + IndexedDB 자동 복구
 
 ### 내장 샘플 프로젝트 3종
-외부 파일 없이 결정론적 DSP로 생성한 3개의 멀티트랙 루프입니다. 빈 프로젝트에서는 스테이지에
-샘플 3종 칩이 바로 보이고, 작업 중에도 **`📁` 프로젝트 드로워**에서 언제든 다시 고를 수 있습니다.
+외부 파일 없이 결정론적 DSP로 생성한 3개의 멀티트랙 루프입니다. **`📁` 프로젝트 드로워** 맨 아래
+**샘플 프로젝트** 아코디언을 펼치면 언제든 다시 고를 수 있습니다.
 불러온 뒤 `▶` 재생, Mute/Solo, 트랙 FX, 오버더빙, WAV/MP3 스템 내보내기까지 바로 체험할 수 있습니다.
 
 | 샘플 | 템포 | 구성 |
@@ -72,7 +74,7 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # Vitest 63개
+npm test           # Vitest 66개
 npx tsc --noEmit
 npm run build
 ```
@@ -83,10 +85,10 @@ npm run build
 ```
 src/
   audio/    clock · dsp · wav · mp3 · recorder · synth · drums · engine · render · project · sampleProjects
-  components/  Header · ProjectDrawer · SamplePrompt · ChannelStrip · MobileDeck · Dock · Sheet · sheets
+  components/  Header · ProjectDrawer · EmptyStage · ChannelStrip · MobileDeck · Dock · Sheet · sheets
   store/    studio state + IndexedDB autosave
   hooks/    media query · QWERTY performance keys
-tests/      clock · dsp · wav · mp3 · project · i18n · samples · brand
+tests/      clock · dsp · wav · mp3 · project · i18n · samples · brand · layout
 ```
 
 ## 브라우저 · 하드웨어 제약 (사실 그대로)
