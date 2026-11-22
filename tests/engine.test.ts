@@ -323,6 +323,31 @@ describe('in-flight commits cannot outlive their owner', () => {
     expect(rig.engine.getTrackBuffer(2)!.channels[0][0]).toBeCloseTo(0.25, 3);
   });
 
+  it('drops a take that the transport stops during its count-in', async () => {
+    rig = new Rig();
+    await rig.boot({ bpm: 120, bars: 2, countIn: true });
+    await rig.engine.record(1);
+    expect(rig.engine.trackRuntime()[0].status).toBe('COUNT-IN');
+    rig.advance(1.0);
+    rig.engine.stop();
+    await rig.settle();
+    expect(rig.engine.getTrackBuffer(1)).toBeNull();
+    expect(rig.engine.trackRuntime()[0].status).toBe('EMPTY');
+  });
+
+  it('commits the performed part when the transport stops mid-loop', async () => {
+    rig = new Rig();
+    await rig.boot({ bpm: 120, bars: 2, countIn: false });
+    await rig.engine.record(1);
+    rig.advance(0.09 + 1.2, () => 0.45);
+    rig.engine.stop();
+    await rig.settle();
+    const loop = rig.engine.getTrackBuffer(1);
+    expect(loop).not.toBeNull();
+    expect(peakIn(loop!.channels[0], 0, Math.round(1.1 * SAMPLE_RATE))).toBeCloseTo(0.45, 3);
+    expect(peakIn(loop!.channels[0], Math.round(1.4 * SAMPLE_RATE), loop!.channels[0].length)).toBe(0);
+  });
+
   it('ignores a take started before loadProject replaces the tracks', async () => {
     rig = new Rig();
     await rig.boot({ bpm: 120, bars: 2, countIn: false, tracks: 1 });

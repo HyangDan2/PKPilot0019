@@ -899,6 +899,15 @@ export class AudioEngine {
     const ctx = this.ctx;
     const session = track.rec;
     if (!session) return;
+    const stoppedAt = nowOverride ?? ctx?.currentTime ?? 0;
+    if (stoppedAt < session.start) {
+      // The transport stopped inside the count-in: nothing was performed, so
+      // drop the take instead of committing a silent loop.
+      this.invalidateTake(track);
+      this.emit();
+      this.emitState();
+      return;
+    }
     track.rec = null;
     const recorder = session.recorder;
     if (!ctx || !recorder) {

@@ -74,7 +74,7 @@ mix with per-track FX and export a master or stems. No install, no upload, no se
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # Vitest 106개 (단위 + 오디오 엔진 통합 QA)
+npm test           # Vitest 108개 (단위 + 오디오 엔진 통합 QA)
 npx tsc --noEmit
 npm run build
 ```
